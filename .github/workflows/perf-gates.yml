@@ -1,0 +1,61 @@
+name: Perf Gates
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: First Token Gate
+        env:
+          SPAWN_SERVICE: '1'
+          LOG_JSON: '1'
+          NODE_ENV: 'production'
+          PORT: '3950'
+          LLM_TEST_STUBS: '1'
+          URGA_PROVIDER: 'stub-urga'
+          LLM_TURN_BUDGET: '5'
+          CONV_RATE_MAX: '1000'
+          CONV_RATE_WINDOW: '2000'
+          CONV_SOFT_MAX: '5000'
+          CONV_SOFT_WINDOW_MS: '2000'
+          CONV_AUTH: 'test-token'
+          STREAM_ENGINE: 'urga'
+          FIRST_TOKEN_THRESHOLD_MS: '300'
+          FIRST_TOKEN_MIN_PCT_UNDER: '90'
+        run: |
+          node scripts/ci/first_token_gate.mjs
+
+      - name: Stream Duration Gate
+        env:
+          SPAWN_SERVICE: '1'
+          LOG_JSON: '1'
+          NODE_ENV: 'production'
+          PORT: '3951'
+          LLM_TEST_STUBS: '1'
+          URGA_PROVIDER: 'stub-urga'
+          LLM_TURN_BUDGET: '5'
+          CONV_RATE_MAX: '1000'
+          CONV_RATE_WINDOW: '2000'
+          CONV_SOFT_MAX: '5000'
+          CONV_SOFT_WINDOW_MS: '2000'
+          CONV_AUTH: 'test-token'
+          STREAM_ENGINE: 'urga'
+          STREAM_DURATION_THRESHOLD_MS: '5000'
+          STREAM_DURATION_MIN_PCT_UNDER: '90'
+        run: |
+          node scripts/ci/stream_duration_gate.mjs
+

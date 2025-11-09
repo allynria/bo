@@ -777,6 +777,11 @@ const METRICS = {
   }
 };
 
+// Latency bucket boundaries for streaming metrics
+// Ensure buckets include common CI thresholds (e.g., 300ms)
+const FIRST_TOKEN_MS_BUCKETS = [50, 100, 200, 300, 500, 800, 1200, 2000, 3000, 5000, 8000, 12000];
+const STREAM_DURATION_MS_BUCKETS = [500, 800, 1200, 2000, 3000, 5000, 8000, 12000, 20000, 30000, 60000];
+
 // --- Admin SSE: memory broadcaster ---
 const ADMIN_SSE_MEMORY = new Map(); // conv_id -> Set<res>
 function registerAdminMemorySSE(convId, res) {
@@ -9716,6 +9721,17 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
             const endPayload = { final: sanitizeUtf8Text(String(final || '')), request_id: String(rid || '') };
             if (lastSuspicion && typeof lastSuspicion.level === 'number') endPayload.suspicion = lastSuspicion;
             res.write(`event: end\ndata: ${JSON.stringify(endPayload)}\n\n`);
+          } catch {}
+          // Stream duration metrics (from start to final end)
+          try {
+            const startMs = Number(ctx?.vars?.__stream_start_ms || 0);
+            const durMs = Number.isFinite(startMs) && startMs > 0 ? (Date.now() - startMs) : 0;
+            if (durMs > 0) {
+              let le = 'inf';
+              for (const b of STREAM_DURATION_MS_BUCKETS) { if (durMs <= b) { le = String(b); break; } }
+              METRICS.inc('stream_duration_ms_bucket', { le, path: 'stream' });
+              METRICS.set('stream_duration_last_ms', Number(durMs), { path: 'stream' });
+            }
           } catch {}
           // Outcome: success
           try {
