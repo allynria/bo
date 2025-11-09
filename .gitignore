@@ -7,6 +7,8 @@
 Heap.*.heapsnapshot
 .tmp_*
 tmp/
+node_modules/
+**/node_modules/
 *.log
 *.pid
 *.pid.lock
@@ -16,8 +18,8 @@ stack_probe.txt
 # build artifacts and editor settings (optional safety)
 dist/
 build/
+coverage/
 .cache/
 .vscode/
 .idea/
 .DS_Store
-
