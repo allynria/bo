@@ -65,6 +65,20 @@ Example (allowlist allow): start a local HTTP server and permit `127.0.0.1:<port
 - `npm test`: Runs the full test suite, including idempotency and HMAC enforcement.
 - `npm run start`: Starts the service locally.
 
+## Operational Scripts & Guards
+- `scripts/repo-guards.sh`: Fails CI if tracked artifacts reappear, if `Dockerfile` is missing a `HEALTHCHECK`, if `/healthz` or `/readyz` endpoints are absent, or if graceful shutdown hooks (`SIGTERM|SIGINT` + `server.close()`) are missing. Why: enforce production guarantees and keep the repository clean.
+- `scripts/config-guard.mjs`: Gates dev/debug features and sensitive endpoints based on environment configuration, ensuring debug/heap features do not ship in production. Why: harden production behavior and reduce risk.
+- `scripts/service.js`: Exposes `GET /healthz` (liveness) and `GET /readyz` (readiness). Registers signal handlers and calls `server.close()` to drain connections for graceful shutdown. Why: healthy orchestration and safe rollouts.
+- `.github/workflows/repo-guards.yml`: Runs `scripts/repo-guards.sh` on PRs and pushes to `main`. Why: prevent regressions from bypassing reviews.
+- `.github/workflows/image-security.yml`: Scans container images for known vulnerabilities as part of CI. Why: supply chain and image security.
+- `Dockerfile` `HEALTHCHECK`: Probes `/healthz` within the container. Why: early detection of stalled or unhealthy processes.
+
+### Artifact Policy
+- Ignored by `.gitignore`: `coverage/`, `dist/`, `build/`, `tmp/`, `tmp_rl/`, `var/usage/`, `out.txt`, `errs.txt`, `probe.txt`, `rename-probe.txt`, `test_output*.txt`, `tmp.kill.write.json*`, `janitor_guard_*.*`, `enospc.trigger.txt`.
+- Why: prevent bulky or ephemeral artifacts from polluting the repository and slowing clones.
+- CI guard: the repo guard fails if any of these files are tracked.
+- History: artifacts were purged from Git history to reduce repository size; collaborators should rebase or re-clone after a history rewrite.
+
 ## Notes
 - Exactly-once tool markers are written by an isolated worker subprocess with strict FS/network allowlists and memory/time caps. Policy defaults to fail-closed.
 
@@ -117,3 +131,27 @@ Example (allowlist allow): start a local HTTP server and permit `127.0.0.1:<port
   - Those identifiers belong in logs/NDJSON ledger and traces; use coarse labels like `reason`, `status`, `path`, `provider`, `model` for counters.
 
 See `.env.example` for a ready-to-copy set of defaults.
+-
+## Scripts & Behaviors Overview
+- `scripts/core.mjs`: Core service orchestration and integration glue for endpoints and subsystems.
+- `scripts/service.js`: HTTP service entrypoint, health probes (`/healthz`, `/readyz`), graceful shutdown.
+- `scripts/state/`: Static configuration for world state and refusal templates; shapes persistent defaults.
+- `scripts/memory/`: Memory subsystem — LRU-like stores, audit, judge/labeler, booster, shadow, transcript, arcs; enforces memory shaping, selection, and retention policies.
+- `scripts/spine/` and `scripts/state/character_spine.mjs`: Character “spine” orchestration — ties style and scene to produce consistent outputs.
+- `scripts/style/`: Style and hedging utilities (booster, hedge, phrase decay, prefs); governs output cadence and hedged behaviors.
+- `scripts/scene/`: Scene construction and cadence management (beat detection, scheduler, conclusions).
+- `scripts/loopguard/`: Loop guard and entropy controls to prevent runaway loops; cadence and phrase decay maps.
+- `scripts/determinism/`: Golden freeze and verification; ensures deterministic outputs under guarded conditions.
+- `scripts/critics/` and `scripts/memory/constraint_critic.mjs`: Constraint critics — validate outputs against policies and constraints.
+- `scripts/failroll/`: Failure roll orchestration and cooldown mechanics; used by probes/tests to validate resilience paths.
+- `scripts/signals/`: Signal bus and SSE-related helpers; coordinates asynchronous events.
+- `scripts/probes_run_all.mjs`: Runs a suite of probes for quick local validation.
+- `scripts/dev_*`: Development probes (e.g., SSE replay, provider env checks, dreams/tension streams, AB restarts); each targets a specific behavior for manual validation.
+- `scripts/ci/contract_check.mjs`: Validates exported API/contract stability; fails CI on breaking changes.
+- `scripts/ci/auto_rollback_gate.mjs`: Gating for auto-rollback on failure signals; conservative guard to prevent bad deploys.
+- `scripts/ci/first_token_gate.mjs`: Ensures acceptable first-token latency under load; can be used as perf guard.
+- `scripts/soak_budget_gate.mjs`: Soak testing budget gate; enforces throughput or spend constraints over time.
+- `scripts/soak_failover_hedge.mjs`: Validates failover/hedging behavior during long-running or degraded scenarios.
+- `scripts/sdk/`: OpenAPI-based SDK generation helpers.
+- `scripts/contract.mjs` and `scripts/conv/`: Contract definitions and conversation helpers; keep API types consistent.
+- `scripts/tests/`: Test suite (unit/integration) covering resilience, memory shaping, rate limiting, GC safety, header caps, and tool policy lint.
