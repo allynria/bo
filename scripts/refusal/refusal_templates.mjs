@@ -77,7 +77,8 @@ function spineLine(spine) {
   return '';
 }
 
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)] || arr[0] || '';
-}
+import { rng } from '../../monolith.js';
 
+function pick(arr) {
+  return arr[Math.floor(rng() * arr.length)] || arr[0] || '';
+}

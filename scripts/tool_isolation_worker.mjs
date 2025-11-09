@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import http from 'node:http';
 import https from 'node:https';
 import { loadToolPolicyFromEnv, lintToolPolicy } from './tool_policy.mjs';
+import { AsyncFS } from '../monolith.js';
 
 function parseList(input) {
   if (!input) return [];
@@ -116,7 +117,7 @@ const safeFs = {
       err.code = 'POLICY_VIOLATION';
       throw err;
     }
-    return await fsp.readFile(p, enc);
+    return await AsyncFS.readFile(p, enc);
   },
   async writeFile(p, data, enc) {
     if (FAIL_CLOSED_ENABLED && !isPathAllowed(p)) {
@@ -124,7 +125,7 @@ const safeFs = {
       err.code = 'POLICY_VIOLATION';
       throw err;
     }
-    return await fsp.writeFile(p, data, enc);
+    return await AsyncFS.writeFileAtomic(p, data, enc);
   },
   async mkdir(p, opts) {
     if (FAIL_CLOSED_ENABLED && !isPathAllowed(p)) {
@@ -132,7 +133,7 @@ const safeFs = {
       err.code = 'POLICY_VIOLATION';
       throw err;
     }
-    return await fsp.mkdir(p, opts);
+    return await AsyncFS.mkdir(p, opts);
   }
 };
 

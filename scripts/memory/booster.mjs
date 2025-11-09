@@ -9,6 +9,7 @@
 //   BOOSTER_SUMMARY_STYLE    (optional: "first-person"|"third-person")
 
 import { getWindowAround } from './transcript.mjs';
+import { SafeText } from '../../monolith.js';
 
 const BOOSTERS = new Map(); // convId -> [{ id, anchor, range:[lo,hi], text, turnsLeft, ts, agent, source }]
 
@@ -76,7 +77,9 @@ export function summarizeWindow({ convId, anchor, before=20, after=20, pov='she'
   let body = [...head, '—', ...tail].join(' ');
   body = body.replace(/\s+/g, ' ').trim();
   let recap = `${capitalize(pov)} recalled: ${body}`;
-  if (recap.length > maxChars) recap = recap.slice(0, maxChars-1).trimEnd() + '…';
+  // Sanitize and clamp via SafeText for durability and log safety
+  recap = SafeText.stripDangerous(recap);
+  recap = SafeText.clamp(recap, Math.max(1, maxChars));
   return recap;
 }
 

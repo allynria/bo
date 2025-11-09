@@ -1,12 +1,11 @@
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { AsyncFS } from '../../monolith.js';
 
 async function main() {
   const specPath = path.join(process.cwd(), 'scripts', 'docs', 'openapi.json');
   const outDir = path.join(process.cwd(), 'sdk', 'js');
   const outFile = path.join(outDir, 'client.mjs');
-  const raw = await fsp.readFile(specPath, 'utf8');
+  const raw = await AsyncFS.readFile(specPath, 'utf8');
   const spec = JSON.parse(raw);
   const s = spec?.components?.schemas || {};
   const msgReq = s.MessageRequest; const msgRes = s.MessageResponse;
@@ -15,7 +14,7 @@ async function main() {
   if (!msgReq || !msgRes || !compReq || !compRes) {
     throw new Error('OpenAPI components missing required schemas (MessageRequest/Response, CompileRequest/Response).');
   }
-  await fsp.mkdir(outDir, { recursive: true });
+  await AsyncFS.mkdir(outDir, { recursive: true });
   const header = `// Generated from scripts/docs/openapi.json. Do not edit by hand.\n`;
   const code = `${header}
 import http from 'node:http';
@@ -186,9 +185,9 @@ export function iterateV1ConvStream(baseUrl, opts) {
   return iterator;
 }
 `;
-  await fsp.writeFile(outFile, code, 'utf8');
+  await AsyncFS.writeFileAtomic(outFile, code, 'utf8');
   // Touch a marker file to allow CI diff checks
-  await fsp.writeFile(path.join(outDir, '.generated'), String(Date.now()), 'utf8');
+  await AsyncFS.writeFileAtomic(path.join(outDir, '.generated'), String(Date.now()), 'utf8');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

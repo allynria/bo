@@ -1,19 +1,19 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
+import { AsyncFS } from '../../monolith.js';
 
 const BASE = path.join(process.cwd(), 'tmp', 'shadow');
-await fs.mkdir(BASE, { recursive: true }).catch(()=>{});
+await AsyncFS.mkdir(BASE, { recursive: true }).catch(()=>{});
 
 // ---------- Storage ----------
 function fileFor(convId) { return path.join(BASE, encodeURIComponent(convId) + '.json'); }
 
 async function loadShadow(convId) {
-  try { return JSON.parse(String(await fs.readFile(fileFor(convId)))); }
+  try { return JSON.parse(String(await AsyncFS.readFile(fileFor(convId), 'utf8'))); }
   catch { return { convId, turns: [], facts: [], lastTurn: -1, mismatches: [] }; }
 }
 async function saveShadow(convId, data) {
-  const fp = fileFor(convId), tmp = fp + '.tmp';
-  await fs.writeFile(tmp, JSON.stringify(data)); await fs.rename(tmp, fp);
+  const fp = fileFor(convId);
+  await AsyncFS.writeFileAtomic(fp, JSON.stringify(data), 'utf8');
 }
 
 // ---------- Utilities ----------

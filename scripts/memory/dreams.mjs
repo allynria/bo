@@ -15,15 +15,19 @@ const DREAMS = [
   "(He notices a gentle echo of last time.)",
 ];
 
+import { rng, SafeText } from '../../monolith.js';
+
 function pick(arr) {
-  return arr[(Math.random() * arr.length) | 0];
+  return arr[(rng() * arr.length) | 0];
 }
 
 export function maybeDream({ text = "", allow = true } = {}) {
   if (!allow) return null;
 
   // Metering: inject roughly once every N turns on average.
-  if (EVERY > 1 && Math.random() >= 1 / EVERY) return null;
+  {
+    if (EVERY > 1 && rng() >= 1 / EVERY) return null;
+  }
 
   // Keep fragment very short; caller guards not to double-inject if it already starts
   // with a dream parenthetical.
@@ -37,12 +41,14 @@ export function maybeDream({ text = "", allow = true } = {}) {
         "(She feels a bright flicker of a thought.)",
         "(He catches a lively note in the air.)",
       ]);
-      return String(d || '').slice(0, MAX_LEN);
+      const clean = SafeText.stripDangerous(String(d || ''));
+      return SafeText.clamp(clean, MAX_LEN);
     }
   } catch {}
 
   const d = pick(DREAMS);
-  return String(d || '').slice(0, MAX_LEN);
+  const clean = SafeText.stripDangerous(String(d || ''));
+  return SafeText.clamp(clean, MAX_LEN);
 }
 
 export default { maybeDream };

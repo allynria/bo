@@ -14,7 +14,7 @@
 // Caching: per (convId + persona + windowHash + tone) with small LRU.
 
 import crypto from 'node:crypto';
-import { LLMService } from '../../monolith.js';
+import { LLMService, configureProvidersFromEnv, SafeText, sampled } from '../../monolith.js';
 import { getVoiceHints } from './voice_tuner.mjs';
 
 const LRU_MAX = 512;
@@ -58,8 +58,8 @@ function sanitizeOneLiner(s) {
   t = t.replace(/^["“”]+|["“”]+$/g, '').trim();
   // Single sentence-ish: cut at first hard stop after ~220 chars fallback
   const maxChars = Number(process.env.BOOSTER_MAX_CHARS || 220);
-  if (t.length > maxChars) t = t.slice(0, maxChars);
-  // Ensure it reads like an inner thought/narrative
+  t = SafeText.stripDangerous(t);
+  t = SafeText.clamp(t, maxChars);
   return t;
 }
 
@@ -109,6 +109,8 @@ export async function tryLLMBooster(ctx, convId, windowText, persona='') {
 
   try {
     emitMetric('booster_llm_attempt_total', 1, { model });
+    // Ensure providers are configured consistently before calling LLMService
+    try { configureProvidersFromEnv(ctx); } catch {}
     const raw = await LLMService.call(ctx, `${sys}\n\n${prompt}`, {
       model,
       max_tokens: maxTokens,
@@ -124,9 +126,9 @@ export async function tryLLMBooster(ctx, convId, windowText, persona='') {
     return line;
   } catch (err) {
     emitMetric('booster_llm_error_total', 1, { kind: (err?.name || 'error').toLowerCase() });
+    sampled('warn', 0.05, `[booster_llm] error: ${String(err?.message || err)}`);
     return null;
   } finally {
     clearTimeout(to);
   }
 }
-

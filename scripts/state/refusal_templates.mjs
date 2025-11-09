@@ -23,7 +23,8 @@ export function pickRefusal({ style='firm', mood='neutral', suspicion=0.1 }) {
   if (mood === 'annoyed' || mood === 'hostile') style = (style === 'soft') ? 'firm' : style;
   if (suspicion > 0.6 && style === 'soft') style = 'guarded';
   const bank = REFUSAL_TEMPLATES[style] || REFUSAL_TEMPLATES.firm;
-  return bank[Math.floor(Math.random()*bank.length)];
+  const rng = () => (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random());
+  return bank[Math.floor(rng()*bank.length)];
 }
 
 // Build a short booster that gently (or strongly) guides refusal

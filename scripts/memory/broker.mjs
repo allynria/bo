@@ -1,7 +1,7 @@
 /**
  * Memory broker: pre-turn injection + post-turn storage with token budget guard.
  */
-import { TokenCounter } from '../../monolith.js';
+import { TokenCounter, SafeText, sampled } from '../../monolith.js';
 import { selectWithDiversity } from './selector.mjs';
 import { loadFacets, pickFacets, facetToNarrative } from './facets.mjs';
 import { shadowSnapshot } from './shadow.mjs';
@@ -18,7 +18,7 @@ const INJECT_BUDGET = Number(env('MEMORY_INJECT_BUDGET_TOKENS', 120));
 const MIN_IMPORTANCE = Number(env('MEMORY_MIN_IMPORTANCE', 0.6));
 const ECHO_PROB = Number(env('MEMORY_ECHO_PROB_PCT', 35));
 
-function randPct() { return Math.random() * 100; }
+function randPct() { const r = (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random()); return r * 100; }
 
 export async function preTurnMemory({ convId, turn, model, userText }) {
   if (!ENABLED) return { injectText: '' };
@@ -70,7 +70,11 @@ export async function preTurnMemory({ convId, turn, model, userText }) {
       }
     });
     for (const it of picked) {
-      snippets.push(`(${it.who||'they'} remembered: ${it.txt})`);
+      const who = SafeText.stripDangerous(String(it.who || 'they'));
+      const txtBase = SafeText.stripDangerous(String(it.txt || ''));
+      const txt = SafeText.clamp(txtBase, Math.max(40, Math.min(160, Number(process.env.MEMORY_EF_SNIPPET_MAX_CHARS || 120))));
+      if (txt.length < txtBase.length) sampled('debug', 0.02, '[broker] EF snippet truncated/sanitized');
+      snippets.push(`(${who} remembered: ${txt})`);
     }
   }
 
@@ -178,7 +182,7 @@ export async function postTurnMemory({ convId, turn, model, userText, assistantT
     const cue = pickEpisodicCue(ef);
     const lastLine = String(assistantText || '').trim().split('\n').slice(-1)[0]?.trim() || '';
     const recapBase = [ cue ? renderEpisodicCue(cue) : '', lastLine ].filter(Boolean).join(' ');
-    const recap = recapBase.slice(0, 200); // keep it tiny
+    const recap = SafeText.clamp(SafeText.stripDangerous(recapBase), 200); // keep it tiny
     await setSTR(convId, recap, [Math.max(0, turn - SUMM_EVERY + 1), turn]);
   }
 
@@ -210,7 +214,10 @@ function extractEFText(userText, assistantText) {
   const u = String(userText||'').trim();
   const a = String(assistantText||'').trim();
   const pick = a || u;
-  return pick.slice(0, 140);
+  const base = SafeText.stripDangerous(pick);
+  const out = SafeText.clamp(base, 140);
+  if (out.length < base.length) sampled('debug', 0.02, '[broker] EF extract truncated/sanitized');
+  return out;
 }
 
 function guessFirstCharacterName(text='') {

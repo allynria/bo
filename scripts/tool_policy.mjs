@@ -9,9 +9,8 @@
 //   "limits": { "memory_mb": 64, "timeout_ms": 2000 }
 // }
 
-import * as fs from 'node:fs';
-import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
+import { AsyncFS } from '../monolith.js';
 
 export function lintToolPolicy(policy) {
   const errors = [];
@@ -47,7 +46,7 @@ export async function loadToolPolicyFromEnv() {
   if (!obj && policyPath) {
     try {
       const p = path.resolve(policyPath);
-      const raw = await fsp.readFile(p, 'utf8');
+      const raw = await AsyncFS.readFile(p, 'utf8');
       obj = JSON.parse(raw);
     } catch {}
   }
@@ -58,7 +57,7 @@ export async function loadToolPolicyFromEnv() {
     ];
     for (const p of candidates) {
       try {
-        const raw = await fsp.readFile(p, 'utf8');
+        const raw = await AsyncFS.readFile(p, 'utf8');
         obj = JSON.parse(raw);
         break;
       } catch {}
@@ -68,4 +67,3 @@ export async function loadToolPolicyFromEnv() {
   const lint = lintToolPolicy(obj);
   return { policy: obj, lint };
 }
-

@@ -8,9 +8,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as fsp from 'node:fs/promises';
 import * as crypto from 'node:crypto';
-import { registerGracefulShutdown, getQueueDepth, setQueueDepthProvider, createGlobalRateLimiter, createSharedRateLimiter, createBotRuntime, initBotContext, LLMService, configureProvidersFromEnv, registerLLMProvider, AsyncFS, stateIO, TokenCounter, createSharedTenantDollarBudget, createSharedTenantBudget, checkSecrets, startBudgetGC, getEffectiveConfig, DisagreementCore, BeliefStore, buildRefusalHint, checkContradictionsHeuristic, makeDeterministicRoll } from '../monolith.js';
+import { registerGracefulShutdown, getQueueDepth, setQueueDepthProvider, createGlobalRateLimiter, createSharedRateLimiter, createBotRuntime, initBotContext, LLMService, configureProvidersFromEnv, registerLLMProvider, AsyncFS, stateIO, TokenCounter, createSharedTenantDollarBudget, createSharedTenantBudget, checkSecrets, startBudgetGC, getEffectiveConfig, DisagreementCore, BeliefStore, buildRefusalHint, checkContradictionsHeuristic, makeDeterministicRoll, MessageClock, messageCountMiddleware, logAt, sampled, sendMessageWithTick, safeFsp, makePRNG } from '../monolith.js';
 import { createSharedTenantMonthlyBudget, createSharedTenantMonthlyDollarBudget, createSharedTenantRollingBudget, createSharedTenantRollingDollarBudget } from '../monolith.js';
 import { nextLoopStyleToken, setRefusalStyleForAgent, getRefusalStyleForAgent } from '../monolith.js';
+import { registerInternalTools } from './tools/register_internal.mjs';
 import { createMessage, assembleForModel } from './conv/contract.mjs';
 import { preTurnMemory, postTurnMemory } from './memory/broker.mjs';
 import { setGuardHint, getGuardHint, consumeGuardHint, generateGuardOneLiner } from './memory/guardrail.mjs';
@@ -62,11 +63,22 @@ const FAILURE_RISK_VERBS = (process.env.FAILURE_RISK_VERBS || 'sneak,steal,attac
   .map(s => s.trim().toLowerCase())
   .filter(Boolean);
 
-// SSE helper for guard-related events on stream connections
+// Register internal tools (sandboxed) behind env flag for safe defaults
+try { registerInternalTools(); } catch {}
+
+// SSE helpers
+function safeSSEWrite(res, line) {
+  try {
+    if (!res || res.writableEnded || res.destroyed) return false;
+    res.write(line);
+    return true;
+  } catch { return false; }
+}
+// Guard-related events on stream connections
 function emitGuardSSE(res, evt, payload) {
   try {
-    res.write(`event: ${evt}\n`);
-    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    if (!safeSSEWrite(res, `event: ${evt}\n`)) return;
+    safeSSEWrite(res, `data: ${JSON.stringify(payload)}\n\n`);
   } catch {}
 }
 
@@ -304,7 +316,7 @@ async function maybeApplyFailureRoll(ctx, { convId, turn, userText }) {
           const pool = Array.isArray(NEARMISS_PHRASE_TABLE?.[key]) && NEARMISS_PHRASE_TABLE[key].length
             ? NEARMISS_PHRASE_TABLE[key]
             : (NEARMISS_PHRASE_TABLE.generic || []);
-          const shuffled = [...pool].sort(() => Math.random() - 0.5);
+          const shuffled = [...pool].sort(() => (globalThis.__RNG__ ? globalThis.__RNG__() : makePRNG()()) - 0.5);
           const chosen = shuffled.slice(0, pickN);
           if (chosen.length > 0) {
             try { coolPhrases(convId, chosen, ttlMs); } catch {}
@@ -788,8 +800,8 @@ function broadcastAdminMemoryEvent(convId, name, payload) {
     if (!set || set.size === 0) return;
     for (const res of set) {
       try {
-        res.write(`event: ${name}\n`);
-        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+        if (!safeSSEWrite(res, `event: ${name}\n`)) continue;
+        safeSSEWrite(res, `data: ${JSON.stringify(payload)}\n\n`);
       } catch {}
     }
   } catch {}
@@ -824,8 +836,8 @@ function broadcastAdminStyleEvent(convId, name, payload) {
     if (!set || set.size === 0) return;
     for (const res of set) {
       try {
-        res.write(`event: ${name}\n`);
-        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+        if (!safeSSEWrite(res, `event: ${name}\n`)) continue;
+        safeSSEWrite(res, `data: ${JSON.stringify(payload)}\n\n`);
       } catch {}
     }
   } catch {}
@@ -854,8 +866,8 @@ function broadcastAdminRefusalEvent(convId, name, payload) {
     if (!set || set.size === 0) return;
     for (const res of set) {
       try {
-        res.write(`event: ${name}\n`);
-        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+        if (!safeSSEWrite(res, `event: ${name}\n`)) continue;
+        safeSSEWrite(res, `data: ${JSON.stringify(payload)}\n\n`);
       } catch {}
     }
   } catch {}
@@ -884,8 +896,8 @@ function broadcastAdminSpineEvent(convId, name, payload) {
     if (!set || set.size === 0) return;
     for (const res of set) {
       try {
-        res.write(`event: ${name}\n`);
-        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+        if (!safeSSEWrite(res, `event: ${name}\n`)) continue;
+        safeSSEWrite(res, `data: ${JSON.stringify(payload)}\n\n`);
       } catch {}
     }
   } catch {}
@@ -1065,7 +1077,10 @@ function listFactsRt(convId) {
 function putFactRt(convId, fact) {
   const b = getFactsRtBucket(convId);
   const now = Date.now();
-  if (!fact.id) fact.id = `f_${now}_${Math.random().toString(36).slice(2,7)}`;
+  if (!fact.id) {
+    const rng = () => (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random());
+    fact.id = `f_${now}_${rng().toString(36).slice(2,7)}`;
+  }
   const prev = b.facts.get(fact.id);
   const merged = {
     id: fact.id,
@@ -1546,7 +1561,7 @@ function selectTopFactsRt(convId, limit) {
 try {
   const usageDir = path.join(process.cwd(), 'var', 'usage');
   async function ensureUsageDir() {
-    try { await fsp.mkdir(usageDir, { recursive: true }); } catch {}
+    try { await AsyncFS.mkdir(usageDir, { recursive: true }); } catch {}
   }
   function hourKeyFromTs(ts) {
     const d = new Date(ts);
@@ -1568,7 +1583,7 @@ try {
     try {
       await ensureUsageDir();
       const file = path.join(usageDir, `${hourKey}.ndjson`);
-      await fsp.appendFile(file, line + '\n');
+      await AsyncFS.appendFile(file, line + '\n');
       return file;
     } catch {}
     return '';
@@ -1665,7 +1680,7 @@ try {
         for (const s of scopes) {
           try { METRICS.inc('chargeback_alert_total', { scope: s.scope, tenant: tenant || '' }); } catch {}
         }
-        try { console.warn(JSON.stringify({ evt: 'chargeback_alert', tenant, mac_id: macId, usage, scopes })); } catch {}
+        try { logAt('warn', JSON.stringify({ evt: 'chargeback_alert', tenant, mac_id: macId, usage, scopes })); } catch {}
       }
     } catch {}
   }
@@ -1762,7 +1777,7 @@ export function startService({ port = PORT, drainTimeoutMs = 5000 } = {}) {
     const sec = checkSecrets();
     if (!sec?.ok) {
       try { globalThis?.READY?.notReady?.(); } catch {}
-      try { console.log(JSON.stringify({ evt: 'secrets_missing', missing: sec?.missing || [], providers: sec?.providers || [] })); } catch {}
+    try { logAt('info', JSON.stringify({ evt: 'secrets_missing', missing: sec?.missing || [], providers: sec?.providers || [] })); } catch {}
     }
   } catch {}
   // Idempotency, A/B stickiness, and per-conversation soft guard state
@@ -1873,7 +1888,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
   function recordSpike(signalType, level, engine_source) {
     try {
       if (level !== 'high') return;
-      const now = Date.now();
+      const now = MessageClock.now();
       const bucketKey = Math.floor(now / ABUSE_ALERT_BUCKET_MS) * ABUSE_ALERT_BUCKET_MS;
       const map = ABUSE_BUCKETS[signalType];
       map.set(bucketKey, (map.get(bucketKey) || 0) + 1);
@@ -1891,7 +1906,14 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
         if (last !== bucketKey) {
           ABUSE_LAST_ALERT[signalType] = bucketKey;
           try { METRICS.inc('abuse_spike_alert_total', { signal: signalType, source: String(engine_source || '') }); } catch {}
-          try { console.warn(JSON.stringify({ evt: 'abuse_spike_alert', signal: signalType, engine_source: engine_source, bucket_ms: ABUSE_ALERT_BUCKET_MS, threshold: ABUSE_ALERT_THRESHOLD })); } catch {}
+          try {
+            logAt('warn', '[abuse_spike_alert]', {
+              signal: signalType,
+              engine_source,
+              bucket_ms: ABUSE_ALERT_BUCKET_MS,
+              threshold: ABUSE_ALERT_THRESHOLD
+            });
+          } catch {}
         }
       }
     } catch {}
@@ -1966,7 +1988,8 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
       if (!reason) return null;
       const maxMs = Math.max(50, Number(process.env.PRECALL_SHED_JITTER_MS || 300));
       const minMs = Math.max(25, Number(process.env.PRECALL_SHED_JITTER_MIN_MS || 50));
-      const jitterMs = minMs + Math.floor(Math.random() * Math.max(1, (maxMs - minMs)));
+      const rng = () => (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random());
+      const jitterMs = minMs + Math.floor(rng() * Math.max(1, (maxMs - minMs)));
       try { METRICS.inc('precall_soft_drop_total', { reason, source: String(engine_source || '') }); } catch {}
       return { reason, jitterMs };
     } catch {
@@ -2053,7 +2076,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
   }
   async function gcIdemDir() {
     try {
-      const names = await fsp.readdir(IDEM_DIR);
+      const names = await AsyncFS.readdir(IDEM_DIR);
       const now = Date.now();
       for (const n of names) {
         const p = path.join(IDEM_DIR, n);
@@ -2061,7 +2084,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
           const s = await AsyncFS.readFile(p, 'utf8');
           const j = JSON.parse(s || '{}');
           if ((now - Number(j.ts || 0)) > (IDEMPOTENCY_TTL_MS + IDEMPOTENCY_SKEW_MS)) {
-            await fsp.rm(p, { force: true });
+      await AsyncFS.rm(p, { force: true });
           }
         } catch {}
       }
@@ -2069,7 +2092,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
   }
   async function purgeIdemEntries({ tenant, olderThanMs = 0, maxDeletesPerRun = 500 } = {}) {
     try {
-      const names = await fsp.readdir(IDEM_DIR).catch(() => []);
+      const names = await AsyncFS.readdir(IDEM_DIR).catch(() => []);
       const now = Date.now();
       let deleted = 0;
       for (const n of names) {
@@ -2085,7 +2108,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
         const timeOk = olderThanMs > 0 ? ((now - ts) >= olderThanMs) : true;
         const tenantOk = tenant ? (respTenant === tenant) : true;
         if (timeOk && tenantOk) {
-          try { await fsp.rm(p, { force: true }); deleted++; try { METRICS.inc('tenant_idem_purge_deleted_total', { tenant: tenant || '' }); } catch {} } catch {}
+      try { await AsyncFS.rm(p, { force: true }); deleted++; try { METRICS.inc('tenant_idem_purge_deleted_total', { tenant: tenant || '' }); } catch {} } catch {}
           if (deleted >= Math.max(1, Number(maxDeletesPerRun || 500))) break;
         }
       }
@@ -2153,7 +2176,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
   }
   const toolPath = (id) => path.join(TOOL_DIR, encodeURIComponent(String(id)) + '.done');
   async function hasToolExecuted(id) {
-    try { await fsp.stat(toolPath(id)); return true; } catch { return false; }
+    try { return !!(await AsyncFS.exists(toolPath(id))); } catch { return false; }
   }
   // AB variant persistence: conv_id -> variant ('A'|'B')
   const abPath = (cid) => path.join(AB_DIR, encodeURIComponent(String(cid)) + '.json');
@@ -2181,7 +2204,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
   async function purgeToolMarkers({ tenant, olderThanMs = 0, maxDeletesPerRun = 500 } = {}) {
     try {
       const dir = TOOL_DIR;
-      const names = await fsp.readdir(dir).catch(() => []);
+      const names = await AsyncFS.readdir(dir).catch(() => []);
       const now = Date.now();
       let deleted = 0;
       for (const name of names) {
@@ -2189,8 +2212,8 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
         const p = path.join(dir, name);
         let content = '';
         let st = null;
-        try { st = await fsp.stat(p); } catch { continue; }
-        try { content = await fsp.readFile(p, 'utf8'); } catch { content = ''; }
+    try { st = await AsyncFS.stat(p); } catch { continue; }
+        try { content = await AsyncFS.readFile(p, 'utf8'); } catch { content = ''; }
         let j = null;
         try { j = JSON.parse(content); } catch { j = null; }
         const fileTenant = String((j && j.tenant) || '').trim();
@@ -2198,7 +2221,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
         const timeOk = olderThanMs > 0 ? ((now - ts) >= olderThanMs) : true;
         const tenantOk = tenant ? (fileTenant === tenant) : true;
         if (timeOk && tenantOk) {
-          try { await fsp.rm(p, { force: true }); deleted++; try { METRICS.inc('tenant_tool_purge_deleted_total', { tenant: tenant || '' }); } catch {} } catch {}
+      try { await AsyncFS.rm(p, { force: true }); deleted++; try { METRICS.inc('tenant_tool_purge_deleted_total', { tenant: tenant || '' }); } catch {} } catch {}
           if (deleted >= Math.max(1, Number(maxDeletesPerRun || 500))) break;
         }
       }
@@ -2286,7 +2309,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
       const stubs = String(process.env.LLM_TEST_STUBS || '').trim() === '1';
       if (!stubs) return;
       const file = path.join(process.cwd(), 'test_output.txt');
-      fs.appendFile(file, String(line) + '\n', () => {});
+      AsyncFS.appendFile(file, String(line) + '\n').catch(() => {});
     } catch {}
   };
 
@@ -2365,6 +2388,8 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
       const wrap = (method) => {
         const orig = console[method].bind(console);
         console[method] = (...args) => {
+          let allJson = true;
+          const jsonArgs = [];
           try {
             for (const a of args) {
               const stream = streamByMethod[method] || 'stdout';
@@ -2372,29 +2397,25 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                 const s = a.trim();
                 const looksJson = s.startsWith('{') || s.startsWith('[');
                 if (looksJson) {
-                  try { JSON.parse(s); }
-                  catch { try { METRICS.inc('non_json_log_total', { stream }); } catch {} }
+                  try { JSON.parse(s); jsonArgs.push(s); }
+                  catch { allJson = false; try { METRICS.inc('non_json_log_total', { stream }); } catch {} }
                 } else {
-                  try { METRICS.inc('non_json_log_total', { stream }); } catch {}
+                  allJson = false; try { METRICS.inc('non_json_log_total', { stream }); } catch {}
                 }
               } else if (typeof a === 'object' && a !== null) {
                 // Non-string console outputs are not guaranteed to be JSON
-                try { METRICS.inc('non_json_log_total', { stream }); } catch {}
+                allJson = false; try { METRICS.inc('non_json_log_total', { stream }); } catch {}
+              } else {
+                allJson = false; try { METRICS.inc('non_json_log_total', { stream }); } catch {}
               }
             }
           } catch {}
-          // --- Style hedge plan: compute alt booster/preset and stash for later SSE ---
-          try {
-            const primaryPreset = String((ctx?.vars?.style && ctx.vars.style.preset) || '');
-            const plan = planStyleHedge(ctx, conv_id, primaryPreset);
-            if (plan && plan.booster && plan.booster.text) {
-              try { ctx.vars.__style_backup_booster = String(plan.booster.text || ''); } catch {}
-              try { ctx.vars.__style_backup_preset = String(plan.altPreset || ''); } catch {}
-              try { ctx.vars.__style_backup_tokens = Array.isArray(plan.tokens) ? plan.tokens : []; } catch {}
-            }
-          } catch {}
-          
-          return orig(...args);
+          // In production JSON-only mode, drop any non-JSON console outputs entirely.
+          // Only pass through validated JSON strings to the original console method.
+          if (jsonArgs.length > 0 && allJson) {
+            try { return orig(...jsonArgs); } catch {}
+          }
+          return undefined;
         };
       };
       try { wrap('log'); wrap('info'); wrap('warn'); wrap('error'); } catch {}
@@ -2425,7 +2446,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
   try {
     // Report queue depth based on actual work (exclude probe/control endpoints)
     setQueueDepthProvider(() => inflightWork);
-    try { console.log(JSON.stringify({ evt: 'debug_queue_provider_set', initial: Number(getQueueDepth()) })); } catch {}
+    try { logAt('debug', `[service] queue depth provider set: ${Number(getQueueDepth())}`); } catch {}
   } catch {}
   // Startup prewarm: provider health and tokenizer caches
   const __FIRST_TOKEN_BUCKETS_ENV = String(process.env.FIRST_TOKEN_MS_BUCKETS || '').trim();
@@ -2445,6 +2466,11 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
       // Provider prewarm by resolving providers and issuing a tiny call (stubs in CI)
       const ctxWarm = { vars: { engine_source: 'prewarm' }, io: { events: new EventEmitter() } };
       try { configureProvidersFromEnv(ctxWarm); } catch {}
+      try {
+        if (String(process.env.PROVIDERS_DEBUG || '0') === '1') {
+          logAt('debug', JSON.stringify({ evt: 'providers_configured', source: String(ctxWarm?.vars?.engine_source || 'prewarm') }));
+        }
+      } catch {}
       try {
         const llmWarm = new LLMService(ctxWarm);
         for (const m of prewarmModels) {
@@ -2484,13 +2510,16 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
     };
   };
   const server = http.createServer(async (req, res) => {
+    // Inbound/outbound message tick middleware (counts-based clock)
+    try { const mw = messageCountMiddleware(); mw(req, res, () => {}); } catch {}
     // Begin optional tracing span
     let span = null;
     try {
       if (otel.tracer) span = otel.tracer.startSpan('http.request', { attributes: { 'http.method': req.method, 'http.target': req.url || '' } });
     } catch {}
     // Generate request_id and propagate via AsyncLocalStorage when available
-    const rid = `rid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const __rng__ = (typeof globalThis.__prng__ === 'function' ? globalThis.__prng__ : (typeof globalThis.__RNG__ === 'function' ? globalThis.__RNG__ : makePRNG()));
+    const rid = `rid-${Date.now().toString(36)}-${__rng__().toString(36).slice(2, 8)}`;
     try { res.setHeader('x-request-id', rid); } catch {}
     try { ALS?.enterWith?.({ rid }); } catch {}
     // Normalize path early for all route checks to avoid undefined references
@@ -2580,17 +2609,20 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
         const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
         const principal = apiKey || bearer || forwarded || String(req.socket?.remoteAddress || 'unknown');
         const out = await Promise.resolve(globalThis.__CLIENT_RL__.allow(principal));
+        try { sampled('debug', { gate: 'client_rl_check', principal: String(principal || '').slice(0, 64), window_ms: CLIENT_WINDOW_MS, ok: !!out?.ok, internal_error: !!out?.internal_error }); } catch {}
         if (!out?.ok) {
           const retryAfter = Math.max(1, Math.ceil(CLIENT_WINDOW_MS / 1000));
           if (out.internal_error && internalOnce) {
             res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) });
             res.end(JSON.stringify({ error: 'rate_limited', reason: 'internal_error', scope: 'client', retry_after_s: retryAfter }));
             try { METRICS.inc('rate_limited_total', { reason: 'internal_error', scope: 'client' }); METRICS.inc('responses_total', { status: '503' }); } catch {}
+            try { sampled('debug', { gate: 'client_rl_deny', reason: 'internal_error', retry_after_s: retryAfter }); } catch {}
             return;
           }
           res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) });
           res.end(JSON.stringify({ error: 'rate_limited', reason: 'client', retry_after_s: retryAfter }));
           try { METRICS.inc('rate_limited_total', { reason: 'client', scope: 'client' }); METRICS.inc('responses_total', { status: '429' }); } catch {}
+          try { sampled('debug', { gate: 'client_rl_deny', reason: 'client', retry_after_s: retryAfter }); } catch {}
           return;
         }
       }
@@ -2624,7 +2656,8 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
         // Prefer provider depth, but fall back to local inflight for robustness
         const provDepth = Number(getQueueDepth());
         const effectiveDepth = (Number.isFinite(provDepth) && provDepth >= 0) ? provDepth : Number(inflightReq);
-        try { console.log(JSON.stringify({ evt: 'queue_check', inflight: Number(inflightReq), active: Number(activeResponses), provDepth: Number.isFinite(provDepth) ? provDepth : null, effectiveDepth, QUEUE_MAX })); } catch {}
+          try { logAt('info', JSON.stringify({ evt: 'queue_check', inflight: Number(inflightReq), active: Number(activeResponses), provDepth: Number.isFinite(provDepth) ? provDepth : null, effectiveDepth, QUEUE_MAX })); } catch {}
+        try { sampled('debug', { evt: 'queue_check', inflight: Number(inflightReq), active: Number(activeResponses), effectiveDepth, QUEUE_MAX }); } catch {}
         if (effectiveDepth >= QUEUE_MAX) {
           // Mark start of sustained backpressure window
           if (bpStartMs === 0) bpStartMs = Date.now();
@@ -2633,13 +2666,14 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
           const ratio = QUEUE_MAX > 0 ? Math.max(0, Math.min(1, effectiveDepth / QUEUE_MAX)) : 0;
           // Keep clients retrying frequently enough: favor 0.5..1.5s uniformly.
           // This improves acceptance under step-load while still spreading retries.
-          let retryAfter = 0.5 + Math.random(); // 0.5..1.5 seconds
+          let retryAfter = 0.5 + (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random()); // 0.5..1.5 seconds
           // Limit precision to one decimal place for readability
           retryAfter = Math.round(retryAfter * 10) / 10;
           // Prefer fractional seconds in header to avoid synchronized retries
           res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) });
           res.end(JSON.stringify({ error: 'rate_limited', reason: 'backpressure', retry_after_s: retryAfter }));
-          try { console.log(JSON.stringify({ evt: 'rate_limited_total', reason: 'backpressure' })); } catch {}
+          try { sampled('warn', { evt: 'rate_limited', reason: 'backpressure', effectiveDepth, QUEUE_MAX, retry_after_s: retryAfter }); } catch {}
+          try { logAt('warn', JSON.stringify({ evt: 'rate_limited_total', reason: 'backpressure' })); } catch {}
           try { METRICS.inc('rate_limited_total', { reason: 'backpressure' }); } catch {}
           try { METRICS.inc('responses_total', { status: '503' }); } catch {}
           return;
@@ -2657,7 +2691,8 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                 for (const b of buckets) { if (durMs <= b) { le = String(b); break; } }
                 METRICS.inc('backpressure_sustained_total');
                 METRICS.inc('backpressure_sustained_ms_bucket', { le });
-                console.log(JSON.stringify({ evt: 'backpressure_sustained', duration_ms: durMs, le }));
+        logAt('info', JSON.stringify({ evt: 'backpressure_sustained', duration_ms: durMs, le }));
+                try { sampled('info', { evt: 'backpressure_sustained', duration_ms: durMs, le }); } catch {}
               } catch {}
             }
           }
@@ -2809,7 +2844,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
         } catch {}
         setTimeout(() => {
           server.close(() => {
-            try { console.log(JSON.stringify({ evt: 'service_closed', success: inflightReq === 0, inflightReq })); } catch {}
+            try { logAt('info', JSON.stringify({ evt: 'service_closed', success: inflightReq === 0, inflightReq })); } catch {}
             process.exitCode = inflightReq === 0 ? 0 : 1;
             // Ensure process exits on HTTP-triggered drain to prevent test hangs
             try { process.exit(process.exitCode); } catch {}
@@ -2933,7 +2968,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
           tokenFromQuery = String(u.searchParams.get('token') || u.searchParams.get('auth') || '').trim();
         } catch {}
         const ok = tokenFromHdr === token || tokenFromQuery === token;
-        try { console.log(JSON.stringify({ evt: 'metrics_auth_debug', hdr, tokenFromHdr, tokenFromQuery, expectedToken: token })); } catch {}
+        try { logAt('debug', JSON.stringify({ evt: 'metrics_auth_debug', hdr, tokenFromHdr, tokenFromQuery, expectedToken: token })); } catch {}
         if (!ok) {
           // Enforce IP allowlist when configured
           if (!isIpAllowed('METRICS_IP_ALLOWLIST')) {
@@ -3258,7 +3293,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
     if (req.url === '/openapi.json' && String(req.method || 'GET').toUpperCase() === 'GET') {
       try {
         const specPath = path.join(process.cwd(), 'scripts', 'docs', 'openapi.json');
-        const raw = await fsp.readFile(specPath, 'utf8');
+        const raw = await AsyncFS.readFile(specPath, 'utf8');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(raw);
         try { span?.setAttribute?.('http.status_code', 200); } catch {}
@@ -4111,10 +4146,18 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
           // Lightweight heartbeat to keep intermediaries happy
           const t = setInterval(() => { try { res.write(':hb\n\n'); } catch {} }, 15000);
           try { t.unref?.(); } catch {}
-          req.on('close', () => {
+          req.on('close', async () => {
             try { clearInterval(t); } catch {}
             unregisterAdminMemorySSE(convId, res);
-            try { res.end(); } catch {}
+            try {
+              await sendMessageWithTick(async () => { res.end(); return true; });
+            } catch {
+              try {
+                await sendMessageWithTick(async () => { res.end(); return true; });
+              } catch {
+                try { res.end(); } catch {}
+              }
+            }
           });
           return;
         } catch (e) {
@@ -5802,6 +5845,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               CONV_WINDOW.set(convId, entry);
               if (entry.count > CONV_SOFT_MAX) {
                 const waitSec = Math.max(0, (CONV_SOFT_WINDOW_MS - (now - entry.start)) / 1000);
+                try { sampled('debug', 0.05, '[conv_gate]', { conv_id: convId, count: entry.count, window_ms: CONV_SOFT_WINDOW_MS, soft_max: CONV_SOFT_MAX, wait_s: Number(waitSec.toFixed(3)) }); } catch {}
                 res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(waitSec.toFixed(3)) });
                 res.end(JSON.stringify({ error: 'rate_limited', scope: 'conversation', conv_id: convId, wait_s: Number(waitSec.toFixed(3)) }));
                 try { METRICS.inc('responses_total', { status: '429' }); span?.setAttribute?.('http.status_code', 429); } catch {}
@@ -5829,6 +5873,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                 const usdIn = Math.max(0, Number(process.env.LLM_USD_PER_TOKEN_IN || 0));
                 const usdOut = Math.max(0, Number(process.env.LLM_USD_PER_TOKEN_OUT || 0));
                 const estUsd = (estIn * usdIn) + (estOut * usdOut);
+                try { sampled('debug', 0.05, '[tenant_budget_precheck]', { tenant: tenantKey, est_in: estIn, est_out: estOut, usd_in: usdIn, usd_out: usdOut, est_usd: estUsd, limit_usd: limUsd, window_ms: winUsd }); } catch {}
                 const allowUsd = await Promise.resolve(globalThis.__TENANT_USD_BUDGET__.allow(tenantKey, estUsd));
                 if (!allowUsd?.ok) {
                   res.writeHead(429, { 'Content-Type': 'application/json' });
@@ -6019,9 +6064,11 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                   span?.setAttribute?.('llm.variant_v', String(cached?.response?.variant_v || ''));
                   METRICS.inc('llm_provider_selected_total', { provider: String(cached?.response?.provider || ''), model: String(cached?.response?.model || ''), resolved_model: String(cached?.response?.resolved_model || ''), source: 'replay' });
                 } catch {}
+                try { sampled('info', { evt: 'idem_replay_served', path: 'message', source: 'replay' }); } catch {}
                 return;
               } else {
                 try { METRICS.inc('idempotency_cache_miss_total', { path: 'message' }); } catch {}
+                try { sampled('debug', { evt: 'idem_cache_miss', path: 'message' }); } catch {}
                 // Distributed duplicate gating: claim Redis NX lock; if held elsewhere, hedge-wait for replay
                 try {
                   const claimed = await idemClaimLock(idempotencyKey);
@@ -6039,11 +6086,13 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                       res.writeHead(200, { 'Content-Type': 'application/json' });
                       res.end(JSON.stringify({ ...replay.response, idempotent_replay: true }));
                       try { METRICS.inc('responses_total', { status: '200' }); span?.setAttribute?.('http.status_code', 200); } catch {}
+                      try { sampled('info', { evt: 'hedge_cutover_replay_served', path: 'message' }); } catch {}
                       return;
                     }
                     res.writeHead(409, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'duplicate_message', ttl_ms: IDEMPOTENCY_TTL_MS }));
                     try { METRICS.inc('responses_total', { status: '409' }); span?.setAttribute?.('http.status_code', 409); } catch {}
+                    try { sampled('warn', { evt: 'duplicate_message_lock_denied', path: 'message' }); } catch {}
                     return;
                   } else {
                     claimedIdemLock = true;
@@ -6349,7 +6398,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                     try {
                       METRICS.inc('policy_refusal_total', { class: 'jailbreak', level: jbLevelPre || 'high', source: engineSource });
                       METRICS.inc('jailbreak_levels_histogram_total', { level: jbLevelPre || 'high', path: 'message' });
-                      console.info(JSON.stringify({ evt: 'policy_refusal', class: 'jailbreak', level: jbLevelPre, threshold, engine_source: engineSource }));
+        logAt('info', JSON.stringify({ evt: 'policy_refusal', class: 'jailbreak', level: jbLevelPre, threshold, engine_source: engineSource }));
                     } catch {}
                     return { ok: true, refused: true, reason: 'jailbreak', reply: assistant, model, provider: 'policy', provider_primary: 'policy', provider_used: 'policy', resolved_model: 'refusal/jailbreak', variant_v: ctxLocal.vars.abVariant, engine_source: engineSource };
                   }
@@ -7077,7 +7126,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                       memoryPrefix = (memoryPrefix || '') + `\n${fade}\n`;
                       try { ctxLocal.vars.__memory_prefix = memoryPrefix; } catch {}
                       try { METRICS.inc('scene_conclusion_total', { path: 'message' }); } catch {}
-                      try { console.log('[memory.conclude]', JSON.stringify({ drag, next: nextHint || null, conv_id: ctxVars.conv_id })); } catch {}
+                      try { logAt('info', '[memory.conclude]', JSON.stringify({ drag, next: nextHint || null, conv_id: ctxVars.conv_id })); } catch {}
                     }
                   }
                 } catch {}
@@ -7403,7 +7452,8 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                   const primary = String(ctxLocal.vars.__primary_provider || providerSel);
                   const used = String(ctxLocal.vars.__used_provider || providerSel);
                   const hedgeTriggered = primary && used && primary !== used;
-                  console.info(JSON.stringify({ evt: 'engine_selected', source: engineSource, model, provider: providerSel, provider_primary: primary, provider_used: used, hedge_triggered: hedgeTriggered, resolved_model: resolvedModel, conv_id: cid, variant_v: ctxLocal.vars.abVariant, tenant: tenantLog }));
+                  logAt('info', JSON.stringify({ evt: 'engine_selected', source: engineSource, model, provider: providerSel, provider_primary: primary, provider_used: used, hedge_triggered: hedgeTriggered, resolved_model: resolvedModel, conv_id: cid, variant_v: ctxLocal.vars.abVariant, tenant: tenantLog }));
+                  try { console.info(JSON.stringify({ evt: 'engine_selected', source: engineSource, model, provider: providerSel, provider_primary: primary, provider_used: used, hedge_triggered: hedgeTriggered, resolved_model: resolvedModel, conv_id: cid, variant_v: ctxLocal.vars.abVariant, tenant: tenantLog })); } catch {}
                   METRICS.inc('llm_provider_selected_total', { provider: providerSel, model, resolved_model: resolvedModel, source: engineSource });
                   if (hedgeTriggered) { try { METRICS.inc('llm_hedge_switch_total', { from: primary, to: used, model, source: engineSource }); } catch {} }
                   span?.setAttribute?.('llm.model', model);
@@ -7711,10 +7761,16 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
             try {
               const dbg = String(process.env.LLM_TEST_STUBS || '').toLowerCase();
               if (dbg === '1' || dbg === 'true') {
-                console.info(JSON.stringify({ evt: 'message_response_debug', path: 'message', response }));
+    console.info(JSON.stringify({ evt: 'message_response_debug', path: 'message', response }));
               }
             } catch {}
-            res.end(JSON.stringify(response));
+            try {
+              const payload = JSON.stringify(response);
+              await sendMessageWithTick(async (p) => { res.end(p); return true; }, payload);
+            } catch {
+              // Fallback in case tick wrapper throws
+              res.end(JSON.stringify(response));
+            }
             try { METRICS.inc('responses_total', { status: '200' }); span?.setAttribute?.('http.status_code', 200); } catch {}
           } catch {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -7812,6 +7868,11 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                     try { res.write(`event: start\n`); res.write(`data: ${JSON.stringify({ refused: true, reason: String(critic.reason || ''), model: 'refusal', provider: 'local', resolved_model: 'refusal' })}\n\n`); } catch {}
                     try { res.write(`event: delta\n`); res.write(`data: ${JSON.stringify({ text: refusalText })}\n\n`); } catch {}
                     try { res.write(`event: end\n`); res.write(`data: ${JSON.stringify({ final: refusalText, refused: true, reason: String(critic.reason || '') })}\n\n`); } catch {}
+                    try {
+                      await sendMessageWithTick(async () => { res.end(); return true; });
+                    } catch {
+                      try { res.end(); } catch {}
+                    }
                     return;
                   }
                 } catch {}
@@ -8725,6 +8786,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
             res.writeHead(409, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'duplicate_stream', ttl_ms: IDEMPOTENCY_TTL_MS }));
             try { METRICS.inc('responses_total', { status: '409' }); span?.setAttribute?.('http.status_code', 409); } catch {}
+            try { sampled('warn', { evt: 'duplicate_stream_active', path: 'stream' }); } catch {}
             return;
           }
           let cached = touchLRU(IDEMPOTENCY_CACHE, streamKey) || (idempotencyKey ? touchLRU(IDEMPOTENCY_CACHE, idempotencyKey) : null);
@@ -8757,6 +8819,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               res.writeHead(409, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'replay_unavailable', reason: 'exhausted' }));
               try { METRICS.inc('responses_total', { status: '409' }); METRICS.inc('idempotent_replay_denied_total', { reason: 'exhausted', path: 'stream' }); } catch {}
+              try { sampled('warn', { evt: 'replay_unavailable', path: 'stream', reason: 'exhausted' }); } catch {}
               return;
             }
             // Fast replay via SSE: emit start and end with cached final
@@ -8784,7 +8847,11 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               try { maybeTagCooledPhrases(ctx, String(conv_id || ''), String(cached?.response?.final || '')); } catch {}
               res.write(`event: end\ndata: ${JSON.stringify({ final: String(cached.response.final || ''), idempotent_replay: true, request_id: ridVal })}\n\n`);
             } catch {}
-            try { res.end(); } catch {}
+            try {
+              await sendMessageWithTick(async () => { res.end(); return true; });
+            } catch {
+              try { res.end(); } catch {}
+            }
             try {
               METRICS.inc('responses_total', { status: '200' });
               METRICS.inc('idempotent_replay_total');
@@ -8797,6 +8864,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               span?.setAttribute?.('llm.engine_source', 'replay');
               span?.setAttribute?.('llm.variant_v', String(cached.response.variant_v || ''));
             } catch {}
+            try { sampled('info', { evt: 'idem_replay_served', path: 'stream', source: 'replay' }); } catch {}
             // Mark a single replay consumed when reconnect intent is explicit
             try {
               if (wantsReplay) {
@@ -8818,6 +8886,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
             res.writeHead(409, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'replay_unavailable', reason: 'ttl_or_missing' }));
             try { METRICS.inc('responses_total', { status: '409' }); METRICS.inc('idempotent_replay_denied_total', { reason: 'ttl_or_missing', path: 'stream' }); } catch {}
+            try { sampled('warn', { evt: 'replay_unavailable', path: 'stream', reason: 'ttl_or_missing' }); } catch {}
             return;
           }
           // Distributed duplicate gating via Redis lock (if not a replay and no cached value)
@@ -8828,6 +8897,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                 res.writeHead(409, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'duplicate_stream', ttl_ms: IDEMPOTENCY_TTL_MS }));
                 try { METRICS.inc('responses_total', { status: '409' }); span?.setAttribute?.('http.status_code', 409); } catch {}
+                try { sampled('warn', { evt: 'duplicate_stream_lock_denied', path: 'stream' }); } catch {}
                 return;
               }
               // Release lock when response closes (best-effort)
@@ -9259,7 +9329,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
                 METRICS.inc('jailbreak_levels_histogram_total', { level: jbLevelPre || 'high', path: 'stream' });
                 METRICS.inc('responses_total', { status: '200' });
                 METRICS.inc('llm_provider_selected_total', { provider: 'policy', model, resolved_model: 'refusal/jailbreak', source: engineSource });
-                console.info(JSON.stringify({ evt: 'policy_refusal', class: 'jailbreak', level: jbLevelPre, threshold, engine_source: engineSource }));
+      logAt('info', JSON.stringify({ evt: 'policy_refusal', class: 'jailbreak', level: jbLevelPre, threshold, engine_source: engineSource }));
               } catch {}
               // Release distributed idempotency lock if held
               try { if (streamKey) idemReleaseLock(streamKey).catch(() => {}); } catch {}
@@ -9731,7 +9801,11 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               try { await idemReleaseLock(streamKey); } catch {}
             }
           } catch {}
-          try { res.end(); } catch {}
+          try {
+            await sendMessageWithTick(async () => { res.end(); return true; });
+          } catch {
+            try { res.end(); } catch {}
+          }
           try { __cleanupHb(); } catch {}
         });
         // Kick off streaming
@@ -10074,6 +10148,11 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               const refusalText = renderRefusal({ style: String(dg.style || 'firm'), reason: 'belief_constraint', spine: ctx?.vars?.spine, userText: String(textInput || '') });
               try { res.write(`event: delta\n`); res.write(`data: ${JSON.stringify({ text: String(refusalText || '') })}\n\n`); } catch {}
               try { res.write(`event: end\n`); res.write(`data: ${JSON.stringify({ ok: true, refused: true, reason: 'belief_constraint' })}\n\n`); } catch {}
+              try {
+                await sendMessageWithTick(async () => { res.end(); return true; });
+              } catch {
+                try { res.end(); } catch {}
+              }
               return;
             }
           } catch {}
@@ -10957,7 +11036,11 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
             METRICS.inc('llm_provider_outcome_total', { provider, model, resolved_model: resolvedModel, source: engineSource, outcome: 'error', classification: cls, path: 'stream' });
           } catch {}
           try { res.write(`event: error\ndata: ${JSON.stringify({ error: String(err && err.message || err) })}\n\n`); } catch {}
-          try { res.end(); } catch {}
+          try {
+            await sendMessageWithTick(async () => { res.end(); return true; });
+          } catch {
+            try { res.end(); } catch {}
+          }
         }
         return;
       } catch {
@@ -11465,7 +11548,7 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
           }
           const file = path.join(process.cwd(), 'scripts', 'docs', 'memory-tuner.html');
           let body = '';
-          try { body = await fsp.readFile(file, 'utf8'); } catch {}
+          try { body = await AsyncFS.readFile(file, 'utf8'); } catch {}
           if (!body) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'not_found' }));
@@ -11506,9 +11589,9 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
           const fileSpa = path.join(process.cwd(), 'scripts', 'admin', 'memory_spa.html');
           const fileLegacy = path.join(process.cwd(), 'scripts', 'admin', 'memory.html');
           let body = '';
-          try { body = await fsp.readFile(fileSpa, 'utf8'); } catch {}
+          try { body = await AsyncFS.readFile(fileSpa, 'utf8'); } catch {}
           if (!body) {
-            try { body = await fsp.readFile(fileLegacy, 'utf8'); } catch {}
+            try { body = await AsyncFS.readFile(fileLegacy, 'utf8'); } catch {}
           }
           if (!body) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -11763,7 +11846,11 @@ $('#off').onclick = async () => {
             turn++;
           }
           try { res.write(`event: end\ndata: ${JSON.stringify({ ok: true })}\n\n`); } catch {}
-          try { res.end(); } catch {}
+          try {
+            await sendMessageWithTick(async () => { res.end(); return true; });
+          } catch {
+            try { res.end(); } catch {}
+          }
           try { METRICS.inc('responses_total', { status: '200' }); } catch {}
         } catch (e) {
           try { res.write(`event: error\ndata: ${JSON.stringify({ error: 'memory_plan_failed', msg: String(e && e.message || e) })}\n\n`); } catch {}
@@ -12159,7 +12246,8 @@ $('#off').onclick = async () => {
     if (QUEUE_MAX > 0) {
       // Introduce a tiny randomized hold so concurrent bursts against fast endpoints
       // can be observed by gating logic, and add slight desynchronization.
-      const microMs = 1 + Math.floor(Math.random() * 5); // 1..5ms
+      const __rng__ = (typeof globalThis.__prng__ === 'function' ? globalThis.__prng__ : (typeof globalThis.__RNG__ === 'function' ? globalThis.__RNG__ : makePRNG()));
+      const microMs = 1 + Math.floor(__rng__() * 5); // 1..5ms
       const t = setTimeout(() => {
         try {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -12179,9 +12267,9 @@ $('#off').onclick = async () => {
   server.listen(port, () => {
     const url = `http://localhost:${port}/healthz`;
     try {
-      console.log(JSON.stringify({ evt: 'service_listen', healthz: url, readyz: `http://localhost:${port}/readyz`, port }));
+logAt('info', JSON.stringify({ evt: 'service_listen', healthz: url, readyz: `http://localhost:${port}/readyz`, port }));
     } catch {
-      console.log(JSON.stringify({ evt: 'service_listen', port }));
+logAt('info', JSON.stringify({ evt: 'service_listen', port }));
     }
     // Start budget GC in background; env controls allow disabling in dev
     try {
@@ -12229,14 +12317,14 @@ $('#off').onclick = async () => {
       const success = inflightReq === 0;
       try {
         const snapshot = METRICS.snapshot();
-        console.log(JSON.stringify({ evt: 'service_closed', success, inflightReq, metrics: { counters: snapshot } }));
+        logAt('info', JSON.stringify({ evt: 'service_closed', success, inflightReq, metrics: { counters: snapshot } }));
       } catch {}
       // Exit code: 0 for success drain; 1 otherwise, then force exit to satisfy test harness
       process.exitCode = success ? 0 : 1;
       try { process.exit(process.exitCode); } catch {}
     });
   } catch (err) {
-    try { console.error(JSON.stringify({ evt: 'service_error', msg: 'Failed to register graceful shutdown', err: err && (err.stack || err) })); } catch {}
+    try { logAt('error', JSON.stringify({ evt: 'service_error', msg: 'Failed to register graceful shutdown', err: err && (err.stack || err) })); } catch {}
   }
 
   // Memory RSS ceiling guardrail: emit alerts when exceeding ceiling
@@ -12250,7 +12338,7 @@ $('#off').onclick = async () => {
           const rssMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
           if (rssMb > ceilingMb) {
             METRICS.inc('rss_ceiling_breach_total');
-            console.warn(JSON.stringify({ evt: 'rss_ceiling_breach', rss_mb: rssMb, ceiling_mb: ceilingMb }));
+            logAt('warn', JSON.stringify({ evt: 'rss_ceiling_breach', rss_mb: rssMb, ceiling_mb: ceilingMb }));
           }
         } catch {}
       }, Math.max(1000, Number(process.env.RSS_CHECK_INTERVAL_MS || 5000)));
@@ -12266,10 +12354,10 @@ $('#off').onclick = async () => {
       const handler = (sig) => {
         try {
           const file = v8.writeHeapSnapshot();
-          METRICS.inc('heap_snapshot_signal_total', { sig });
-          console.log(JSON.stringify({ evt: 'heap_snapshot_signal', ok: true, sig, file }));
+        METRICS.inc('heap_snapshot_signal_total', { sig });
+        logAt('info', JSON.stringify({ evt: 'heap_snapshot_signal', ok: true, sig, file }));
         } catch (e) {
-          console.error(JSON.stringify({ evt: 'heap_snapshot_signal', ok: false, sig, err: String(e && e.message || e) }));
+        logAt('error', JSON.stringify({ evt: 'heap_snapshot_signal', ok: false, sig, err: String(e && e.message || e) }));
         }
       };
       try { process.on('SIGUSR2', () => handler('SIGUSR2')); } catch {}

@@ -4,12 +4,16 @@
 
 import { shadowSnapshot } from './shadow.mjs';
 import { loadFacets } from './facets.mjs';
+import { SafeText, sampled } from '../../monolith.js';
 
 const HINTS = new Map(); // convId -> { text, turnsLeft, ts }
 
 export function setGuardHint(convId, text, { ttlTurns = 2 } = {}) {
   if (!convId || !text) return;
-  HINTS.set(convId, { text: String(text), turnsLeft: Math.max(1, Number(ttlTurns)||1), ts: Date.now() });
+  const maxChars = Number(process.env.GUARD_HINT_MAX_CHARS || 180);
+  const clean = SafeText.clamp(SafeText.stripDangerous(String(text || '')), maxChars);
+  HINTS.set(convId, { text: clean, turnsLeft: Math.max(1, Number(ttlTurns)||1), ts: Date.now() });
+  sampled('debug', 0.05, `[guardrail] set hint len=${clean.length} ttl=${Math.max(1, Number(ttlTurns)||1)}`);
 }
 
 export function getGuardHint(convId) {
@@ -24,6 +28,7 @@ export function consumeGuardHint(convId) {
   v.turnsLeft -= 1;
   if (v.turnsLeft <= 0) HINTS.delete(convId);
   else HINTS.set(convId, v);
+  sampled('debug', 0.05, `[guardrail] consume hint ttl=${v.turnsLeft}`);
   return v.text;
 }
 
@@ -70,7 +75,9 @@ export async function generateGuardOneLiner({ convId, pov = 'she', maxChars = 18
   }
   // If nothing resolved, fall back to last user hint
   if (!line && lastUser) line = `${capitalize(pov)} replayed those words in silence.`;
-  return trimTo(line || `A faint memory surfaced.`, maxChars);
+  const clean = SafeText.clamp(SafeText.stripDangerous(String(line || `A faint memory surfaced.`)), maxChars);
+  sampled('debug', 0.05, `[guardrail] one_liner len=${clean.length}`);
+  return clean;
 }
 
 function facetToClause(f) {
@@ -88,4 +95,3 @@ function capitalize(s) {
   s = String(s||'');
   return s ? s[0].toUpperCase()+s.slice(1) : s;
 }
-

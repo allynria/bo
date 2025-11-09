@@ -1,9 +1,9 @@
 // scripts/state/contradiction_watchdog.mjs
-import fs from 'fs/promises';
+import { AsyncFS } from '../../monolith.js';
 import path from 'path';
 
 const BASE = path.join(process.cwd(), 'tmp', 'urga_contradictions');
-async function ensureBase() { await fs.mkdir(BASE, { recursive: true }); }
+async function ensureBase() { await AsyncFS.mkdir(BASE, { recursive: true }); }
 function fileFor(convId) {
   const k = String(convId || 'default').replace(/[^a-z0-9_.-]/gi, '_');
   return path.join(BASE, `${k}.json`);
@@ -12,13 +12,13 @@ function fileFor(convId) {
 async function loadLog(convId) {
   await ensureBase();
   const f = fileFor(convId);
-  try { return JSON.parse(await fs.readFile(f, 'utf8')); }
+  try { return JSON.parse(await AsyncFS.readFile(f, 'utf8')); }
   catch { return { convId, turns: [], detections: [] }; }
 }
 async function saveLog(convId, data) {
   await ensureBase();
   const f = fileFor(convId);
-  await fs.writeFile(f, JSON.stringify(data, null, 2), 'utf8');
+  await AsyncFS.writeFileAtomic(f, JSON.stringify(data, null, 2), 'utf8');
 }
 
 export async function logTurn(convId, role, text) {

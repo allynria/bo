@@ -3,6 +3,9 @@
 // ENV:
 //   TRANSCRIPT_MAX_TURNS : default 5000 (per conv)
 //   TRANSCRIPT_PRUNE_TO  : default 4500 (per conv)
+//   TRANSCRIPT_MAX_TEXT_CHARS : max chars per stored turn (default 4000)
+
+import { SafeText, sampled } from '../../monolith.js';
 
 const TRANSCRIPTS = new Map(); // convId -> { seq:number, list:Array<{seq,role,text,ts}> }
 
@@ -25,7 +28,12 @@ export function indexTurn({ convId, role, text, ts = Date.now() }) {
   const max = Number(process.env.TRANSCRIPT_MAX_TURNS || 5000);
   const keep = Number(process.env.TRANSCRIPT_PRUNE_TO || 4500);
   t.seq += 1;
-  const rec = { seq: t.seq, role: role || 'unknown', text: String(text ?? ''), ts: Number(ts) };
+  const base = String(text ?? '');
+  const clean = SafeText.stripDangerous(base);
+  const cap = Math.max(100, Math.min(20000, Number(process.env.TRANSCRIPT_MAX_TEXT_CHARS || 4000)));
+  const txt = SafeText.clamp(clean, cap);
+  if (txt.length < base.length) sampled('debug', 0.02, '[transcript] turn text truncated/sanitized');
+  const rec = { seq: t.seq, role: role || 'unknown', text: txt, ts: Number(ts) };
   t.list.push(rec);
   if (t.list.length > max) {
     // prune from head to keep size bounded
@@ -55,4 +63,3 @@ export function getAll(convId) {
 export function clear(convId) {
   TRANSCRIPTS.delete(convId);
 }
-

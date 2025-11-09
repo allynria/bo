@@ -1,6 +1,6 @@
-import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { AsyncFS } from '../../monolith.js';
 
 async function generateClientString(spec) {
   const s = spec?.components?.schemas || {};
@@ -184,9 +184,9 @@ export function iterateV1ConvStream(baseUrl, opts) {
 async function main() {
   const specPath = path.join(process.cwd(), 'scripts', 'docs', 'openapi.json');
   const clientPath = path.join(process.cwd(), 'sdk', 'js', 'client.mjs');
-  const spec = JSON.parse(await fsp.readFile(specPath, 'utf8'));
+  const spec = JSON.parse(await AsyncFS.readFile(specPath, 'utf8'));
   const expected = await generateClientString(spec);
-  const current = await fsp.readFile(clientPath, 'utf8').catch(() => '');
+  const current = await AsyncFS.readFile(clientPath, 'utf8').catch(() => '');
   const normalizeEol = (s) => (s || '').replace(/\r\n/g, '\n');
   const cur = normalizeEol(current).trim();
   const exp = normalizeEol(expected).trim();

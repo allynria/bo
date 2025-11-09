@@ -57,6 +57,8 @@ const RISKY = [
   ['jump_gap', /\b(jump (?:the )?gap|leap across)\b/i],
 ];
 
+import { rng, SafeText, logAt, sampled } from '../../monolith.js';
+
 export function assessRiskyAction({ text, trust = 0.5, suspicion = 0.0, tension = 0.5, style }) {
   if (!text || !processEnabled()) return { action: null, chance: 0, success: true, hint: '' };
   const action = detect(text);
@@ -70,8 +72,10 @@ export function assessRiskyAction({ text, trust = 0.5, suspicion = 0.0, tension 
     - clamp01(suspicion) * suspPenalty;
 
   const chance = clamp(min, max, chanceRaw);
-  const success = Math.random() < chance;
-  const hint = renderHint(action, chance, success, String(style || DEFAULTS.style || 'neutral').toLowerCase());
+  const success = rng() < chance;
+  const pct = Math.round(chance * 100);
+  sampled('debug', 0.05, `[failure_rolls] action=${action} p=${pct}% success=${success ? '1' : '0'}`);
+  const hint = sanitizeHint(renderHint(action, chance, success, String(style || DEFAULTS.style || 'neutral').toLowerCase()));
   return { action, chance, success, hint };
 }
 
@@ -109,3 +113,8 @@ function clamp(lo, hi, v) {
 function clamp01(v) { return clamp(0, 1, Number(v || 0)); }
 function num(x, d) { const n = Number(x); return Number.isFinite(n) ? n : d; }
 function processEnabled() { return String(process.env.FAIL_ROLLS_ENABLED || process.env.FAILROLL_ENABLED || '') === '1'; }
+
+function sanitizeHint(s) {
+  const maxChars = Number(process.env.FAIL_ROLLS_HINT_MAX || 160);
+  return SafeText.clamp(SafeText.stripDangerous(String(s || '')), maxChars);
+}

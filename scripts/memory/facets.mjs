@@ -1,8 +1,8 @@
-import fs from 'node:fs/promises';
+import { AsyncFS } from '../../monolith.js';
 import path from 'node:path';
 
 const BASE = path.join(process.cwd(), 'tmp', 'facets');
-await fs.mkdir(BASE, { recursive: true }).catch(()=>{});
+await AsyncFS.mkdir(BASE, { recursive: true }).catch(()=>{});
 
 // Facet shape:
 // { key: 'fear', val: 'open water', strength: 0.75, lastTurn: 42, pinned: false }
@@ -21,7 +21,7 @@ function fileFor(convId) {
 
 export async function loadFacets(convId) {
   try {
-    const buf = await fs.readFile(fileFor(convId));
+    const buf = await AsyncFS.readFile(fileFor(convId), 'utf8');
     const j = JSON.parse(String(buf));
     return j && j.characters ? j : { characters: {} };
   } catch {
@@ -31,9 +31,7 @@ export async function loadFacets(convId) {
 
 export async function saveFacets(convId, data) {
   const fp = fileFor(convId);
-  const tmp = fp + '.tmp';
-  await fs.writeFile(tmp, JSON.stringify(data));
-  await fs.rename(tmp, fp);
+  await AsyncFS.writeFileAtomic(fp, JSON.stringify(data), 'utf8');
 }
 
 export async function upsertFacet({ convId, turn=0, charId='bot', key, val, delta=0.25, pin=false }) {
@@ -98,7 +96,8 @@ export function pickFacets({ list=[], nowTurn=0, k=2, temperature=0.7, alpha=0.7
     const T = Math.max(0.05, Number(temperature)||0.7);
     const exps = adj.map(x => Math.exp(x / T));
     const Z = exps.reduce((a,b)=>a+b,0) || 1;
-    let r = Math.random()*Z, pick=0;
+    const rng = () => (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random());
+    let r = rng()*Z, pick=0;
     for (let i=0;i<adj.length;i++){ r -= exps[i]; if (r<=0){ pick=i; break; } }
     used.add(pick); chosen.push(scored[pick]);
   }
@@ -118,4 +117,3 @@ export function facetToNarrative(f, who='they') {
     default: return `(${who} remembered ${k}: ${v}.)`;
   }
 }
-

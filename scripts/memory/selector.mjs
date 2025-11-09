@@ -1,3 +1,5 @@
+import { rng, sampled } from '../../monolith.js';
+
 // Simple tokenization for similarity
 function toks(s) { return (String(s || '').toLowerCase().match(/[a-z0-9]+/g) || []); }
 function setSim(a, b) {
@@ -15,9 +17,12 @@ export function softmaxPick(scores, k, temperature = 0.8) {
   for (let step=0; step<k && pool.length; step++) {
     const exps = pool.map(({s}) => Math.exp(s / T));
     const Z = exps.reduce((a,b)=>a+b,0) || 1;
-    let r = Math.random() * Z, pick = 0;
+    // Use shared PRNG for determinism when available
+    let r = rng() * Z, pick = 0;
     for (let i=0;i<pool.length;i++) { r -= exps[i]; if (r <= 0) { pick = i; break; } }
-    out.push(pool[pick].i);
+    const chosenIdx = pool[pick].i;
+    out.push(chosenIdx);
+    sampled('debug', 0.02, `[selector] pick step=${step} idx=${chosenIdx} T=${T}`);
     pool.splice(pick,1);
   }
   return out;

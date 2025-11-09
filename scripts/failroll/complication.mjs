@@ -1,4 +1,5 @@
 // scripts/failroll/complication.mjs
+import { rng } from '../../monolith.js';
 export function isNearMiss({ roll, pFailPercent, band = 5 }) {
   // Fail threshold T in [1..100]; if roll is within band above threshold, it's a "barely success"
   const T = Math.round(pFailPercent);
@@ -14,7 +15,7 @@ export function buildComplicationBooster({ verb = 'attempt' }) {
     `(Close—too close. Success, shadowed by a minor setback.)`,
   ];
   return (
-    table[Math.floor(Math.random() * table.length)] + ` (Complication after ${verb}.)`
+    table[Math.floor(rng() * table.length)] + ` (Complication after ${verb}.)`
   );
 }
 

@@ -73,7 +73,8 @@ export function addFactWithStats(convId, text, { weight = 1, agent_id, arc_tags 
     arr[best].lastSeen = Date.now();
     return { id: arr[best].id, merged: true, dropped: 0, total: arr.length };
   }
-  const id = `f${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
+  const rng = () => (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random());
+  const id = `f${Date.now().toString(36)}${rng().toString(36).slice(2,6)}`;
   const base = { id, text, weight, lastSeen: Date.now() };
   if (agentId !== undefined) base.agent_id = agentId;
   if (arcTagsArr !== undefined) base.arc_tags = arcTagsArr;

@@ -1,15 +1,15 @@
 // scripts/state/character_spine.mjs
-import fs from 'fs/promises';
+import { AsyncFS } from '../../monolith.js';
 import path from 'path';
 
 const BASE = path.join(process.cwd(), 'tmp', 'urga_spine');
-await fs.mkdir(BASE, { recursive: true }).catch(() => {});
+await AsyncFS.mkdir(BASE, { recursive: true }).catch(() => {});
 
 const FNAME = (convId, char='bot') =>
   path.join(BASE, `${String(convId).replace(/[^a-z0-9_.-]/gi,'_')}__${char}.json`);
 
 export async function loadSpine(convId, char='bot') {
-  try { return JSON.parse(await fs.readFile(FNAME(convId,char), 'utf8')); }
+  try { return JSON.parse(await AsyncFS.readFile(FNAME(convId,char), 'utf8')); }
   catch { return {
     convId, char,
     mood: process.env.SPINE_DEFAULT_MOOD || 'neutral',
@@ -22,7 +22,7 @@ export async function loadSpine(convId, char='bot') {
 
 export async function saveSpine(convId, char, s) {
   s.lastUpdate = Date.now();
-  await fs.writeFile(FNAME(convId,char), JSON.stringify(s,null,2), 'utf8');
+  await AsyncFS.writeFileAtomic(FNAME(convId,char), JSON.stringify(s,null,2), 'utf8');
   return s;
 }
 
@@ -42,4 +42,3 @@ export function reinforce(spine, {trustDelta=0, suspicionDelta=0, addImpulse}) {
   }
   return decayImpulses(spine);
 }
-

@@ -173,6 +173,48 @@ export const MessageClock = (() => {
 // ============================================================================
 
 
+// ---- Shared RNG helper -----------------------------------------------------
+// Centralized PRNG chain used across modules. Prefers installed PRNGs for test determinism.
+export function rng() {
+  try {
+    const r = (globalThis.__prng__?.() ?? globalThis.__RNG__?.() ?? makePRNG()());
+    return Number.isFinite(r) ? r : Math.random();
+  } catch {
+    return Math.random();
+  }
+}
+
+// ---- Engine resolver -------------------------------------------------------
+// Minimal helper to unify engine selection. Returns { provider, model, source }.
+// - source: 'explicit' | 'ctx' | 'heuristic' | 'default'
+// Heuristics mirror service runtime logic: dreams vs urga based on text.
+export function resolveEngine(ctx, text) {
+  const t = String(text || '');
+  let source = 'ctx';
+  let model = String(ctx?.vars?.engine || '').trim().toLowerCase();
+  if (!model) {
+    const disabled = String(process.env.LLM_HEURISTICS_DISABLED || '').toLowerCase();
+    if (disabled === '1' || disabled === 'true') {
+      source = 'default';
+      model = 'urga';
+    } else {
+      source = 'heuristic';
+      model = /dream|sleep|night|hallucin|lucid/i.test(t) ? 'dreams' : 'urga';
+    }
+  } else {
+    source = 'explicit';
+  }
+  const variant = String(ctx?.vars?.ab_variant || process.env.LLM_AB_VARIANT || '').trim().toUpperCase();
+  const key = String(model || 'urga').toUpperCase(); // URGA, DREAMS, ECHO
+  let provider = '';
+  if (variant === 'A') provider = process.env[`${key}_PROVIDER_A`] || '';
+  else if (variant === 'B') provider = process.env[`${key}_PROVIDER_B`] || '';
+  if (!provider) provider = process.env[`${key}_PROVIDER`] || '';
+  provider = String(provider || '').trim() || null;
+  return { provider, model, source };
+}
+
+
 
 
 export const AsyncFS = {
@@ -211,7 +253,69 @@ export const AsyncFS = {
   async readdir(p, opts) { return fsp.readdir(p, opts); },
   async access(p, mode) { return fsp.access(p, mode); },
   async mkdir(p, opts = {}) { return fsp.mkdir(p, { recursive: true, ...opts }); },
-  async exists(p) { try { await fsp.stat(p); return true; } catch { return false; } },
+  async exists(p) { try { await AsyncFS.stat(p); return true; } catch { return false; } },
+  async stat(p, opts) {
+    let __span__ = null; const __startMs__ = Date.now();
+    try {
+      const tracer = globalThis.__OTEL_TRACER__;
+      const headRate = Number(process?.env?.OTEL_FS_SAMPLE_HEAD_RATE || 0);
+      const doHead = Number.isFinite(headRate) && headRate > 0 && (Math.random() < headRate);
+      if (tracer && doHead) {
+        const store = globalThis.__RID_STORE__;
+        const rid = typeof store?.getStore === 'function' ? (store.getStore()?.rid || '') : '';
+        __span__ = tracer.startSpan('fs.stat', { attributes: { 'fs.path': String(p), 'request_id': rid } });
+      }
+    } catch {}
+    try {
+      return await fsp.stat(p, opts);
+    } catch (err) {
+      try { __span__?.setAttribute?.('error', String(err && err.code || 'err')); } catch {}
+      throw err;
+    } finally {
+      try {
+        const durMs = Date.now() - __startMs__;
+        __span__?.setAttribute?.('fs.dur_ms', durMs);
+        const tailMs = Math.max(0, Number(process?.env?.OTEL_FS_TAIL_SLOW_MS || 0));
+        if (!__span__ && globalThis.__OTEL_TRACER__ && tailMs > 0 && durMs >= tailMs) {
+          const store = globalThis.__RID_STORE__;
+          const rid = typeof store?.getStore === 'function' ? (store.getStore()?.rid || '') : '';
+          __span__ = globalThis.__OTEL_TRACER__.startSpan('fs.stat.tail', { attributes: { 'fs.path': String(p), 'request_id': rid, 'fs.dur_ms': durMs } });
+        }
+      } catch {}
+      try { __span__?.end?.(); } catch {}
+    }
+  },
+  async rm(p, opts = {}) {
+    let __span__ = null; const __startMs__ = Date.now();
+    try {
+      const tracer = globalThis.__OTEL_TRACER__;
+      const headRate = Number(process?.env?.OTEL_FS_SAMPLE_HEAD_RATE || 0);
+      const doHead = Number.isFinite(headRate) && headRate > 0 && (Math.random() < headRate);
+      if (tracer && doHead) {
+        const store = globalThis.__RID_STORE__;
+        const rid = typeof store?.getStore === 'function' ? (store.getStore()?.rid || '') : '';
+        __span__ = tracer.startSpan('fs.rm', { attributes: { 'fs.path': String(p), 'request_id': rid, 'fs.force': !!(opts && opts.force), 'fs.recursive': !!(opts && opts.recursive) } });
+      }
+    } catch {}
+    try {
+      return await fsp.rm(p, { force: true, ...opts });
+    } catch (err) {
+      try { __span__?.setAttribute?.('error', String(err && err.code || 'err')); } catch {}
+      throw err;
+    } finally {
+      try {
+        const durMs = Date.now() - __startMs__;
+        __span__?.setAttribute?.('fs.dur_ms', durMs);
+        const tailMs = Math.max(0, Number(process?.env?.OTEL_FS_TAIL_SLOW_MS || 0));
+        if (!__span__ && globalThis.__OTEL_TRACER__ && tailMs > 0 && durMs >= tailMs) {
+          const store = globalThis.__RID_STORE__;
+          const rid = typeof store?.getStore === 'function' ? (store.getStore()?.rid || '') : '';
+          __span__ = globalThis.__OTEL_TRACER__.startSpan('fs.rm.tail', { attributes: { 'fs.path': String(p), 'request_id': rid, 'fs.dur_ms': durMs } });
+        }
+      } catch {}
+      try { __span__?.end?.(); } catch {}
+    }
+  },
 
   async writeFileAtomic(p, data, enc = "utf8", options = undefined) {
     if (__isCircuitOpen__()) { const e = new Error("circuit_open"); e.code = "E_CIRCUIT_OPEN"; throw e; }
@@ -272,7 +376,7 @@ export const AsyncFS = {
       // Preserve perms/ownership if present
       let targetMode = 0o600, targetUid = null, targetGid = null;
       try {
-        const st = await fsp.stat(p);
+    const st = await AsyncFS.stat(p);
         targetMode = st.mode & 0o777;
         targetUid = st.uid; targetGid = st.gid;
       } catch {}
@@ -315,11 +419,11 @@ export const AsyncFS = {
         const renameStrategy = String(((options && options.renameStrategy) != null ? options.renameStrategy : (process.env.ATOMIC_RENAME_STRATEGY || 'direct')));
         if (renameStrategy === "bak" && fs.existsSync(p)) {
           bak = `${p}.bak.${process.pid}`;
-          try { await fsp.rm(bak, { force: true }); } catch {}
+    try { await AsyncFS.rm(bak, { force: true }); } catch {}
           await __renameWithRetry__(p, bak);
         }
         await __renameWithRetry__(tmp, p);
-        if (bak) { try { await fsp.rm(bak, { force: true }); } catch {} }
+    if (bak) { try { await AsyncFS.rm(bak, { force: true }); } catch {} }
         // Allow test-only skip to simulate kill after rename and before dir fsync
         const skipFsync = String(process?.env?.SKIP_DIR_FSYNC_FOR_TEST || '0') === '1';
         if (!skipFsync) {
@@ -331,7 +435,7 @@ export const AsyncFS = {
           } catch {}
         }
       } catch (err) {
-        try { await fsp.rm(tmp, { force: true }); } catch {}
+    try { await AsyncFS.rm(tmp, { force: true }); } catch {}
         try { if (bak) await __renameWithRetry__(bak, p); } catch {}
         try { __span__?.setAttribute?.('error', String(err && err.code || 'err')); } catch {}
         throw err;
@@ -448,6 +552,8 @@ export const FS = {
   access: (p, mode) => AsyncFS.access(p, mode),
   mkdir: (p, opts) => AsyncFS.mkdir(p, opts),
   exists: (p) => AsyncFS.exists(p),
+  stat: (p, opts) => AsyncFS.stat(p, opts),
+  rm: (p, opts) => AsyncFS.rm(p, opts),
 };
 
 
@@ -565,11 +671,11 @@ async function __acquireLock__(lockPath, { timeoutMs = __LOCK_TIMEOUT_MS__, stal
         __span__?.setAttribute?.('fs.lock.wait_ms', waitMs);
       } catch {}
       try { __span__?.end?.(); } catch {}
-      return async () => { try { await fsp.rm(lockPath, { force: true }); } catch {} };
+  return async () => { try { await AsyncFS.rm(lockPath, { force: true }); } catch {} };
     } catch (err) {
 if (err && err.code === "EEXIST") {
       try {
-        const st = await fsp.stat(lockPath);
+  const st = await AsyncFS.stat(lockPath);
         // Prefer embedded timestamp if available; fall back to mtime
         let staleByContent = false;
         try {
@@ -582,7 +688,7 @@ if (err && err.code === "EEXIST") {
           }
         } catch {}
         if (staleByContent || (Date.now() - st.mtimeMs > staleMs)) {
-          try { await fsp.rm(lockPath, { force: true }); } catch {}
+  try { await AsyncFS.rm(lockPath, { force: true }); } catch {}
           try {
             const M = resolveDep("Metrics", Metrics);
             M?.count?.({}, 'fs_lock_stale_reclaimed_total', 1, { file: String(lockPath) });
@@ -645,10 +751,10 @@ const SafeFS = {
   readdir: (p, opts) => fsp.readdir(p, opts),
   access: (p, mode) => fsp.access(p, mode),
   mkdir: (p, opts = {}) => fsp.mkdir(p, { recursive: true, ...opts }),
-  exists: async (p) => !!(await fsp.stat(p).then(()=>true).catch(()=>false)),
+  exists: async (p) => !!(await AsyncFS.stat(p).then(()=>true).catch(()=>false)),
   rename: (src, dst) => fsp.rename(src, dst),
   copyFile: (src, dst, mode) => fsp.copyFile(src, dst, mode),
-  stat: (p, opts) => fsp.stat(p, opts),
+  stat: (p, opts) => AsyncFS.stat(p, opts),
 };
 
 const SafeJSON = {
@@ -27962,8 +28068,8 @@ function createFileRateLimitBackend({ dir } = {}) {
     wipe: async (key) => {
       try {
         const p = fileFor(key);
-        try { await fsp.rm(p, { force: true }); } catch {}
-        try { await fsp.rm(`${p}.lock`, { force: true }); } catch {}
+        try { await AsyncFS.rm(p, { force: true }); } catch {}
+        try { await AsyncFS.rm(`${p}.lock`, { force: true }); } catch {}
         return { ok: true };
       } catch {}
       return { ok: false };
@@ -28074,12 +28180,12 @@ export function startRateLimitGC({ ttlMs = 24 * 60 * 60 * 1000, intervalMs = 60 
               if (!isStale) {
                 // Fallback: use mtime when content parse didn't mark stale
                 try {
-                  const st = await fsp.stat(p);
+                  const st = await AsyncFS.stat(p);
                   if ((Date.now() - st.mtimeMs) > (ttlMs + skew)) isStale = true;
                 } catch {}
               }
               if (isStale) {
-                await fsp.rm(p, { force: true });
+                await AsyncFS.rm(p, { force: true });
                 deleted++;
               }
             } catch {}
@@ -28152,11 +28258,11 @@ export function startBudgetGC({ ttlMs = 24 * 60 * 60 * 1000, intervalMs = 60 * 1
               } catch {}
               if (!isStale) {
                 try {
-                  const st = await fsp.stat(p);
+                  const st = await AsyncFS.stat(p);
                   if ((Date.now() - st.mtimeMs) > (ttl + skew)) isStale = true;
                 } catch {}
               }
-              if (isStale) { await fsp.rm(p, { force: true }); deleted++; }
+              if (isStale) { await AsyncFS.rm(p, { force: true }); deleted++; }
             } catch {}
           }
         }
@@ -28242,8 +28348,8 @@ export function createFileTenantBudgetBackend({ baseDir, shards = 256 } = {}) {
       wipe: async (key) => {
         try {
           const p = fileFor(key);
-          try { await fsp.rm(p, { force: true }); } catch {}
-          try { await fsp.rm(`${p}.lock`, { force: true }); } catch {}
+          try { await AsyncFS.rm(p, { force: true }); } catch {}
+          try { await AsyncFS.rm(`${p}.lock`, { force: true }); } catch {}
           return { ok: true };
         } catch {}
         return { ok: false };
@@ -28354,15 +28460,15 @@ export function createFileTenantMonthlyBudgetBackend({ baseDir } = {}) {
           const data = await readCurrent(p);
           data.spentTokens = Math.max(0, Number(data.spentTokens || 0)) + Math.max(0, Number(tokens || 0));
           try { await AsyncFS.writeFileAtomic(p, JSON.stringify(data), 'utf8', { lock: false, renameStrategy: 'direct' }); } catch (e) { throw e; }
-          const lim = Number(_lim || 0);
-          return { monthKey: String(data.monthKey), windowStart: Number(data.windowStart), spentTokens: Number(data.spentTokens), limitTokens: lim };
-        } finally { try { await release(); } catch {} }
+        const lim = Number(_lim || 0);
+        return { monthKey: String(data.monthKey), windowStart: Number(data.windowStart), spentTokens: Number(data.spentTokens), limitTokens: lim };
+      } finally { try { await release(); } catch {} }
       },
       wipe: async (key) => {
         try {
           const p = fileFor(key);
-          try { await fsp.rm(p, { force: true }); } catch {}
-          try { await fsp.rm(`${p}.lock`, { force: true }); } catch {}
+          try { await AsyncFS.rm(p, { force: true }); } catch {}
+          try { await AsyncFS.rm(`${p}.lock`, { force: true }); } catch {}
           return { ok: true };
         } catch {}
         return { ok: false };
@@ -28476,8 +28582,8 @@ export function createFileTenantRollingBudgetBackend({ baseDir, bucketMs = 60000
       wipe: async (key) => {
         try {
           const p = fileFor(key);
-          try { await fsp.rm(p, { force: true }); } catch {}
-          try { await fsp.rm(`${p}.lock`, { force: true }); } catch {}
+          try { await AsyncFS.rm(p, { force: true }); } catch {}
+          try { await AsyncFS.rm(`${p}.lock`, { force: true }); } catch {}
           return { ok: true };
         } catch {}
         return { ok: false };
@@ -28574,7 +28680,7 @@ export function startTmpJanitor({ ttlMs = 24 * 60 * 60 * 1000, intervalMs = 60 *
               const looksTemp = name.includes('.tmp-') || name.endsWith('.tmp') || name.endsWith('.bak');
               if (!looksTemp) continue;
               try {
-                const st = await fsp.stat(full);
+                const st = await AsyncFS.stat(full);
                 const skewGuardMs = Math.max(0, Number(process?.env?.TMP_JANITOR_SKEW_GUARD_MS || 5000));
                 const ageMs = Date.now() - st.mtimeMs;
                 const isStale = ageMs > (ttlMs + skewGuardMs);
@@ -28590,13 +28696,13 @@ export function startTmpJanitor({ ttlMs = 24 * 60 * 60 * 1000, intervalMs = 60 *
                 let locked = false;
                 for (const lp of lockPaths) {
                   try {
-                    const ok = await fsp.stat(lp).then(() => true).catch(() => false);
+                    const ok = await AsyncFS.stat(lp).then(() => true).catch(() => false);
                     if (ok) { locked = true; break; }
                   } catch {}
                 }
 
                 if (isStale && !locked) {
-                  await fsp.rm(full, { force: true });
+                  await AsyncFS.rm(full, { force: true });
                   deleted++;
                 }
               } catch {}
