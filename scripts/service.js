@@ -1,4 +1,6 @@
 import http from 'node:http';
+import { assertProdGuards } from './config-guard.mjs';
+assertProdGuards(process.env);
 import { EventEmitter } from 'node:events';
 import * as v8 from 'node:v8';
 import * as os from 'node:os';
@@ -12181,8 +12183,13 @@ $('#off').onclick = async () => {
     } catch {
       console.log(JSON.stringify({ evt: 'service_listen', port }));
     }
-    // Start budget GC in background; env vars can tune behavior
-    try { startBudgetGC(); } catch {}
+    // Start budget GC in background; env controls allow disabling in dev
+    try {
+      const envMode = String(process.env.NODE_ENV || 'dev').toLowerCase();
+      const defaultOn = (envMode === 'production') ? '1' : '0';
+      const enabled = String(process.env.BUDGET_GC_ENABLED || defaultOn) === '1';
+      if (enabled) startBudgetGC();
+    } catch {}
   });
 
   // pass-through of style hedge signals to SSE
@@ -12251,19 +12258,23 @@ $('#off').onclick = async () => {
     }
   } catch {}
 
-  // Heap snapshot on signal for leak diagnostics
+  // Heap snapshot on signal for leak diagnostics (gated by env)
   try {
-    const handler = (sig) => {
-      try {
-        const file = v8.writeHeapSnapshot();
-        METRICS.inc('heap_snapshot_signal_total', { sig });
-        console.log(JSON.stringify({ evt: 'heap_snapshot_signal', ok: true, sig, file }));
-      } catch (e) {
-        console.error(JSON.stringify({ evt: 'heap_snapshot_signal', ok: false, sig, err: String(e && e.message || e) }));
-      }
-    };
-    try { process.on('SIGUSR2', () => handler('SIGUSR2')); } catch {}
-    try { process.on('SIGBREAK', () => handler('SIGBREAK')); } catch {}
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+    const debugHeap = String(process.env.DEBUG_HEAP || '').toLowerCase() === 'true' || String(process.env.DEBUG_HEAP || '') === '1';
+    if (debugHeap || !isProd) {
+      const handler = (sig) => {
+        try {
+          const file = v8.writeHeapSnapshot();
+          METRICS.inc('heap_snapshot_signal_total', { sig });
+          console.log(JSON.stringify({ evt: 'heap_snapshot_signal', ok: true, sig, file }));
+        } catch (e) {
+          console.error(JSON.stringify({ evt: 'heap_snapshot_signal', ok: false, sig, err: String(e && e.message || e) }));
+        }
+      };
+      try { process.on('SIGUSR2', () => handler('SIGUSR2')); } catch {}
+      try { process.on('SIGBREAK', () => handler('SIGBREAK')); } catch {}
+    }
   } catch {}
   return server;
 }

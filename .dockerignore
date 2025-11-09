@@ -19,8 +19,19 @@ coverage/
 tmp/
 tmp.kill.write.json*
 Heap.*.heapsnapshot
+*.log
+*.pid
+*.pid.lock
+out.txt
+errs.txt
+fail_lines.txt
+probe.txt
+rename-probe.txt
+enospc.trigger.txt
+test_output.txt
+test_output4.txt
+stack_probe.txt
 
 # secrets
 .env
 .env.*
-
