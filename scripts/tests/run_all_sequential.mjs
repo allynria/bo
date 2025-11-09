@@ -21,7 +21,9 @@ const wantCoverage = argv.includes('--coverage');
 const wantCI = argv.includes('--ci');
 const coverageDir = join(process.cwd(), 'coverage');
 if (wantCoverage) {
-  try { mkdirSync(coverageDir, { recursive: true }); } catch {}
+  try {
+    mkdirSync(coverageDir, { recursive: true });
+  } catch {}
 }
 
 console.log(`Running ${tests.length} tests sequentially${fastMode ? ' (FAST_SUITE)' : ''}...`);

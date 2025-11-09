@@ -1,6 +1,6 @@
 import { listBeliefs, topBeliefs } from './beliefs_store.mjs';
 
-const cooldownMs = Number(process.env.BELIEFS_HASH_PHRASE_COOLDOWN_MS || 15*60*1000);
+const cooldownMs = Number(process.env.BELIEFS_HASH_PHRASE_COOLDOWN_MS || 15 * 60 * 1000);
 const MAX_INJECT = Number(process.env.BELIEFS_INJECT_MAX || 3);
 
 // conversationId -> Map(beliefId -> lastInjectedAt)
@@ -38,7 +38,7 @@ export function detectContradictions(userText, beliefs) {
   return hits;
 }
 
-export function craftBeliefBoosters({ convId, charId='default', userText }) {
+export function craftBeliefBoosters({ convId, charId = 'default', userText }) {
   if (!process.env.BELIEFS_ENABLED) return { boosters: [], conflicts: [] };
   const all = listBeliefs(charId);
   if (!all.length) return { boosters: [], conflicts: [] };
@@ -47,14 +47,13 @@ export function craftBeliefBoosters({ convId, charId='default', userText }) {
   const prioritized = (conflicts.length ? conflicts : topBeliefs(charId, MAX_INJECT))
     .filter(Boolean)
     .slice(0, MAX_INJECT)
-    .filter(b => shouldInjectOnce(convId, b.id));
+    .filter((b) => shouldInjectOnce(convId, b.id));
 
-  const boosters = prioritized.map(b => ({
+  const boosters = prioritized.map((b) => ({
     type: 'belief',
     belief_id: b.id,
-    text: `(She holds this as bedrock truth: ${b.text}.)`
+    text: `(She holds this as bedrock truth: ${b.text}.)`,
   }));
 
   return { boosters, conflicts };
 }
-

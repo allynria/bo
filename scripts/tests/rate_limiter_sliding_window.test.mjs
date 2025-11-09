@@ -12,8 +12,12 @@ function runNode(script, env = {}) {
     const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
     let out = '';
     let err = '';
-    child.stdout.on('data', (d) => { out += d.toString(); });
-    child.stderr.on('data', (d) => { err += d.toString(); });
+    child.stdout.on('data', (d) => {
+      out += d.toString();
+    });
+    child.stderr.on('data', (d) => {
+      err += d.toString();
+    });
     child.on('exit', (code) => resolve({ code, out, err }));
     child.on('error', reject);
   });
@@ -22,15 +26,31 @@ function runNode(script, env = {}) {
 test('Sliding-window: ok then internal_error once, then rate_limited', async () => {
   const worker = path.join(process.cwd(), 'scripts', 'tests', 'helpers', 'shared_rl_worker.mjs');
   const envBase = { RL_LIMIT: '1', RL_WINDOW_MS: '1000', RL_KEY: 'beta' };
-  const p1 = runNode(worker, { NODE_ENV: 'test', ...envBase, ALIGN_START: '1', RUN_FOR_MS: '6000' });
-  const p2 = runNode(worker, { NODE_ENV: 'test', ...envBase, ALIGN_START: '1', RUN_FOR_MS: '6000' });
-  const p3 = runNode(worker, { NODE_ENV: 'test', ...envBase, ALIGN_START: '1', RUN_FOR_MS: '6000' });
+  const p1 = runNode(worker, {
+    NODE_ENV: 'test',
+    ...envBase,
+    ALIGN_START: '1',
+    RUN_FOR_MS: '6000',
+  });
+  const p2 = runNode(worker, {
+    NODE_ENV: 'test',
+    ...envBase,
+    ALIGN_START: '1',
+    RUN_FOR_MS: '6000',
+  });
+  const p3 = runNode(worker, {
+    NODE_ENV: 'test',
+    ...envBase,
+    ALIGN_START: '1',
+    RUN_FOR_MS: '6000',
+  });
   const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
   const j1 = JSON.parse(r1.out || '{}');
   const j2 = JSON.parse(r2.out || '{}');
   const j3 = JSON.parse(r3.out || '{}');
   const totalOk = Number(j1.ok || 0) + Number(j2.ok || 0) + Number(j3.ok || 0);
-  const totalInternal = Number(j1.internal || 0) + Number(j2.internal || 0) + Number(j3.internal || 0);
+  const totalInternal =
+    Number(j1.internal || 0) + Number(j2.internal || 0) + Number(j3.internal || 0);
   const totalRl = Number(j1.rlBlocked || 0) + Number(j2.rlBlocked || 0) + Number(j3.rlBlocked || 0);
   // Pattern expectations
   assert.ok(totalOk > 0, 'should allow at least once per window');

@@ -13,15 +13,21 @@ function startService(env = {}) {
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let body = '';
-      res.on('data', (c) => { body += c.toString(); });
-      res.on('end', () => {
-        let j = {};
-        try { j = JSON.parse(body); } catch {}
-        resolve({ status: res.statusCode, json: j });
-      });
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        let body = '';
+        res.on('data', (c) => {
+          body += c.toString();
+        });
+        res.on('end', () => {
+          let j = {};
+          try {
+            j = JSON.parse(body);
+          } catch {}
+          resolve({ status: res.statusCode, json: j });
+        });
+      })
+      .on('error', reject);
   });
 }
 
@@ -42,6 +48,8 @@ test('metrics cardinality stays under CI budget', async () => {
   const counters = m.json.counters || [];
   const budget = Number(process.env.METRICS_CARDINALITY_BUDGET || 50);
   assert.ok(counters.length <= budget, `counters length ${counters.length} should be <= ${budget}`);
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });

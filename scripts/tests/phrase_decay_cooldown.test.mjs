@@ -22,10 +22,13 @@ async function startService() {
     PHRASE_DECAY_THRESHOLD: '2',
     PHRASE_DECAY_DECAY_MS: '60000',
     PHRASE_DECAY_COOLDOWN_MS: '600000',
-    PHRASE_DECAY_MAX: '3'
+    PHRASE_DECAY_MAX: '3',
   };
-  const child = spawn(process.execPath, ['scripts/service.js'], { env, stdio:['ignore','pipe','pipe'] });
-  await new Promise(r => setTimeout(r, 700));
+  const child = spawn(process.execPath, ['scripts/service.js'], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  await new Promise((r) => setTimeout(r, 700));
   return child;
 }
 
@@ -57,9 +60,17 @@ test('phrase decay plans a cooldown and emits hashed items', async () => {
     const common = encodeURIComponent('She smiles softly, watching the rain.');
     // Prime the conv with two similar outputs by calling stream twice
     const url1 = `/v1/conv/stream?conv_id=PDC1&turn=0&engine=urga&text=${common}&ts=${Date.now()}`;
-    await sseOnce(url1, { origin:' `http://ok.test` ', authorization:'Bearer test-token', accept:'text/event-stream' });
-    const url2 = `/v1/conv/stream?conv_id=PDC1&turn=1&engine=urga&text=${common}&ts=${Date.now()+1}`;
-    const buf = await sseOnce(url2, { origin:' `http://ok.test` ', authorization:'Bearer test-token', accept:'text/event-stream' });
+    await sseOnce(url1, {
+      origin: ' `http://ok.test` ',
+      authorization: 'Bearer test-token',
+      accept: 'text/event-stream',
+    });
+    const url2 = `/v1/conv/stream?conv_id=PDC1&turn=1&engine=urga&text=${common}&ts=${Date.now() + 1}`;
+    const buf = await sseOnce(url2, {
+      origin: ' `http://ok.test` ',
+      authorization: 'Bearer test-token',
+      accept: 'text/event-stream',
+    });
     const hasPlan = buf.includes('event: loop.phrase.plan');
     assert.ok(hasPlan, 'expected loop.phrase.plan');
     // ensure hashes, not raw phrases

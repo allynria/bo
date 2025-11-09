@@ -26,7 +26,7 @@ const {
   AsyncFS,
   FS,
   computeFileHash,
-  __acquireLock__
+  __acquireLock__,
 } = monolith;
 
 function tmpdir(name = 'monolith-tests') {
@@ -44,7 +44,9 @@ test('MessageClock: tick increments and now reflects count', () => {
 
 test('MessageClock: setTimeoutCounts executes after counts', () => {
   let fired = 0;
-  MessageClock.setTimeoutCounts(() => { fired++; }, 3);
+  MessageClock.setTimeoutCounts(() => {
+    fired++;
+  }, 3);
   MessageClock.tick(2);
   assert.equal(fired, 0);
   MessageClock.tick(1);
@@ -53,7 +55,9 @@ test('MessageClock: setTimeoutCounts executes after counts', () => {
 
 test('MessageClock: setIntervalCounts repeats and can clear', () => {
   let n = 0;
-  const id = MessageClock.setIntervalCounts(() => { n++; }, 2);
+  const id = MessageClock.setIntervalCounts(() => {
+    n++;
+  }, 2);
   MessageClock.tick(2); // first fire
   MessageClock.tick(2); // second fire
   assert.equal(n, 2);
@@ -103,17 +107,28 @@ test('logAt: respects level ordering (INFO default)', () => {
   // Spy on console to capture calls via internal logger
   let calls = { debug: 0, info: 0, warn: 0, error: 0 };
   const orig = { ...console };
-  console.debug = (..._a) => { calls.debug++; };
-  console.info = (..._a) => { calls.info++; };
-  console.warn = (..._a) => { calls.warn++; };
-  console.error = (..._a) => { calls.error++; };
+  console.debug = (..._a) => {
+    calls.debug++;
+  };
+  console.info = (..._a) => {
+    calls.info++;
+  };
+  console.warn = (..._a) => {
+    calls.warn++;
+  };
+  console.error = (..._a) => {
+    calls.error++;
+  };
   try {
     logAt('debug', 'should not log at INFO');
     logAt('error', 'should log at INFO');
     assert.equal(calls.debug, 0);
     assert.equal(calls.error > 0, true);
   } finally {
-    console.debug = orig.debug; console.info = orig.info; console.warn = orig.warn; console.error = orig.error;
+    console.debug = orig.debug;
+    console.info = orig.info;
+    console.warn = orig.warn;
+    console.error = orig.error;
   }
 });
 
@@ -123,7 +138,9 @@ test('sampled: calls logAt when rng < rate', () => {
   globalThis.__RNG__ = () => 0;
   let errorCalls = 0;
   const origErr = console.error;
-  console.error = () => { errorCalls++; };
+  console.error = () => {
+    errorCalls++;
+  };
   try {
     sampled('error', 1.0, 'always logs');
     assert.equal(errorCalls > 0, true);
@@ -178,7 +195,9 @@ test('messageCountMiddleware: ticks on request and finish', () => {
   const req = {};
   const res = new EventEmitter();
   let nextCalled = 0;
-  mw(req, res, () => { nextCalled++; });
+  mw(req, res, () => {
+    nextCalled++;
+  });
   res.emit('finish');
   assert.equal(nextCalled, 1);
   assert.equal(MessageClock.now(), start + 2);
@@ -230,7 +249,10 @@ test('AsyncFS.appendFile: uses lock and releases it', async () => {
   assert.equal(String(data), 'start++');
   // Lock path should not remain
   const lockPath = `${p}.lock.append`;
-  const exists = await fsp.stat(lockPath).then(() => true).catch(() => false);
+  const exists = await fsp
+    .stat(lockPath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(exists, false);
 });
 
@@ -241,7 +263,9 @@ test('AsyncFS.writeFile: circuit breaker prevents writes when open', async () =>
   globalThis.CB = { isOpen: () => true };
   try {
     await assert.rejects(AsyncFS.writeFile(p, 'x', 'utf8'), /circuit_open|E_CIRCUIT_OPEN/);
-  } finally { globalThis.CB = origCB; }
+  } finally {
+    globalThis.CB = origCB;
+  }
 });
 
 test('FS wrappers: read/write/append flow', async () => {
@@ -258,10 +282,16 @@ test('__acquireLock__: acquires and releases', async () => {
   const dir = tmpdir('lock');
   const lockPath = path.join(dir, 'file.lock');
   const release = await __acquireLock__(lockPath, { timeoutMs: 500 });
-  const exists = await fsp.stat(lockPath).then(() => true).catch(() => false);
+  const exists = await fsp
+    .stat(lockPath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(exists, true);
   await release();
-  const existsAfter = await fsp.stat(lockPath).then(() => true).catch(() => false);
+  const existsAfter = await fsp
+    .stat(lockPath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(existsAfter, false);
 });
 
@@ -269,7 +299,11 @@ test('__acquireLock__: stale lock recovered', async () => {
   const dir = tmpdir('lock-stale');
   const lockPath = path.join(dir, 'file.lock');
   // Create a stale lock by writing an old timestamp
-  await fsp.writeFile(lockPath, JSON.stringify({ pid: process.pid, ts: Date.now() - 10_000 }) + '\n', { flag: 'wx' });
+  await fsp.writeFile(
+    lockPath,
+    JSON.stringify({ pid: process.pid, ts: Date.now() - 10_000 }) + '\n',
+    { flag: 'wx' }
+  );
   const release = await __acquireLock__(lockPath, { timeoutMs: 1000, staleMs: 100 });
   assert.equal(typeof release, 'function');
   await release();
@@ -277,7 +311,9 @@ test('__acquireLock__: stale lock recovered', async () => {
 
 // ---- Bot runtime -----------------------------------------------------------
 test('createBotRuntime: wraps respond, enforces rate limit, runs hooks', async () => {
-  let before = 0, after = 0, errs = 0;
+  let before = 0,
+    after = 0,
+    errs = 0;
   const runtime = createBotRuntime({
     respond: async (input) => {
       if (input === 'boom') throw new Error('nope');
@@ -285,10 +321,16 @@ test('createBotRuntime: wraps respond, enforces rate limit, runs hooks', async (
     },
     limits: { max: 2, windowCounts: 5 },
     hooks: {
-      beforeEach: async () => { before++; },
-      afterEach: async () => { after++; },
-      onError: async () => { errs++; }
-    }
+      beforeEach: async () => {
+        before++;
+      },
+      afterEach: async () => {
+        after++;
+      },
+      onError: async () => {
+        errs++;
+      },
+    },
   });
 
   const a = await runtime('x', { send: async () => {} });

@@ -5,7 +5,10 @@ import * as path from 'node:path';
 import { promises as fsp } from 'node:fs';
 
 test('Path-length guard: 2–4 KB logical keys hashed/shortened under ~240 chars', async () => {
-  const tmpBase = path.join(os.tmpdir(), `trae_rl_pathlen2_${process.pid}_${Math.random().toString(36).slice(2)}`);
+  const tmpBase = path.join(
+    os.tmpdir(),
+    `trae_rl_pathlen2_${process.pid}_${Math.random().toString(36).slice(2)}`
+  );
   await fsp.mkdir(tmpBase, { recursive: true });
   process.env.TMPDIR = tmpBase;
   process.env.TEMP = '';
@@ -19,7 +22,7 @@ test('Path-length guard: 2–4 KB logical keys hashed/shortened under ~240 chars
   for (const sz of sizes) {
     const key = 'k'.repeat(sz);
     const hex = Buffer.from(String(key)).toString('hex');
-    const shard = (hex.slice(0, 2) || '00');
+    const shard = hex.slice(0, 2) || '00';
     function fnv1aHex(s) {
       let h = 0x811c9dc5;
       for (let i = 0; i < s.length; i++) {
@@ -37,4 +40,3 @@ test('Path-length guard: 2–4 KB logical keys hashed/shortened under ~240 chars
     assert.ok(base.length <= 240, `filename too long (${base.length}) for size ${sz}`);
   }
 });
-

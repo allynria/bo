@@ -13,14 +13,16 @@ function startService(env = {}) {
 function fetchStatus(url) {
   return new Promise((resolve, reject) => {
     const t0 = process.hrtime.bigint();
-    http.get(url, (res) => {
-      res.resume();
-      res.on('end', () => {
-        const t1 = process.hrtime.bigint();
-        const ms = Number(t1 - t0) / 1e6;
-        resolve({ status: res.statusCode, ms });
-      });
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        res.resume();
+        res.on('end', () => {
+          const t1 = process.hrtime.bigint();
+          const ms = Number(t1 - t0) / 1e6;
+          resolve({ status: res.statusCode, ms });
+        });
+      })
+      .on('error', reject);
   });
 }
 
@@ -30,7 +32,12 @@ async function main() {
   const pathTarget = String(process.env.PATH_TARGET || '/healthz');
   const targetQps = Number(process.env.TARGET_QPS || 2000);
   const concurrent = Number(process.env.CONCURRENCY || 256);
-  const child = startService({ NODE_ENV: 'production', LOG_JSON: '1', PORT: String(port), QUEUE_MAX: '0' });
+  const child = startService({
+    NODE_ENV: 'production',
+    LOG_JSON: '1',
+    PORT: String(port),
+    QUEUE_MAX: '0',
+  });
 
   const base = `http://localhost:${port}`;
   // Wait a moment
@@ -58,13 +65,17 @@ async function main() {
   await Promise.all(Array.from({ length: concurrent }, () => worker()));
 
   latencies.sort((a, b) => a - b);
-  const p50 = latencies[Math.floor(latencies.length * 0.50)] || 0;
-  const p90 = latencies[Math.floor(latencies.length * 0.90)] || 0;
+  const p50 = latencies[Math.floor(latencies.length * 0.5)] || 0;
+  const p90 = latencies[Math.floor(latencies.length * 0.9)] || 0;
   const p99 = latencies[Math.floor(latencies.length * 0.99)] || 0;
   console.log(JSON.stringify({ durationMs, sent, ok, p50_ms: p50, p90_ms: p90, p99_ms: p99 }));
 
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
 }
 
-main().catch((e) => { console.error('perf_soak_error', e && e.stack || e); process.exitCode = 1; });
-
+main().catch((e) => {
+  console.error('perf_soak_error', (e && e.stack) || e);
+  process.exitCode = 1;
+});

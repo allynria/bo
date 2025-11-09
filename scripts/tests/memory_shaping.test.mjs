@@ -11,33 +11,38 @@ function startService(env = {}) {
   return child;
 }
 
-function sse(url){
-  return new Promise((resolve, reject)=>{
-    const req = http.get(url, { headers: { Accept: 'text/event-stream' } }, res=>{
+function sse(url) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(url, { headers: { Accept: 'text/event-stream' } }, (res) => {
       resolve(res);
     });
     req.on('error', reject);
   });
 }
-async function collectUntil(res, event, timeoutMs=4000){
+async function collectUntil(res, event, timeoutMs = 4000) {
   res.setEncoding('utf8');
   let buf = '';
-  return await new Promise((resolve, reject)=>{
-    const to = setTimeout(()=>reject(new Error('SSE timeout')), timeoutMs);
-    res.on('data', chunk=>{
+  return await new Promise((resolve, reject) => {
+    const to = setTimeout(() => reject(new Error('SSE timeout')), timeoutMs);
+    res.on('data', (chunk) => {
       buf += chunk;
       const frames = buf.split('\n\n');
       buf = frames.pop();
       for (const frame of frames) {
         const lines = frame.split('\n');
-        let ev='message', data='';
-        for(const ln of lines){
+        let ev = 'message',
+          data = '';
+        for (const ln of lines) {
           if (ln.startsWith('event:')) ev = ln.slice(6).trim();
           else if (ln.startsWith('data:')) data += ln.slice(5).trim();
         }
-        if (ev===event) {
+        if (ev === event) {
           clearTimeout(to);
-          try { resolve(JSON.parse(data)); } catch { resolve({}); }
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            resolve({});
+          }
         }
       }
     });
@@ -45,7 +50,7 @@ async function collectUntil(res, event, timeoutMs=4000){
   });
 }
 
-test('memory.shape emits and reinforces fact', async ()=>{
+test('memory.shape emits and reinforces fact', async () => {
   const port = 4700 + Math.floor(Math.random() * 100);
   const env = {
     PORT: String(port),
@@ -53,7 +58,7 @@ test('memory.shape emits and reinforces fact', async ()=>{
     URGA_PROVIDER: 'stub-urga',
     TEST_MEMORY_API: '1',
     QUEUE_MAX: '0',
-    LLM_TURN_BUDGET: '5'
+    LLM_TURN_BUDGET: '5',
   };
   const child = startService(env);
   const BASE = `http://127.0.0.1:${port}`;
@@ -61,8 +66,23 @@ test('memory.shape emits and reinforces fact', async ()=>{
     await waitForUp(BASE, { timeout: 3000 });
 
     const conv_id = 'c_shape';
-    await fetch(`${BASE}/__test/clear`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ conv_id }) });
-    const f = await (await fetch(`${BASE}/__test/fact`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ conv_id, text:'He carries a silver locket', score:0.4, salience:0.4 })})).json();
+    await fetch(`${BASE}/__test/clear`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conv_id }),
+    });
+    const f = await (
+      await fetch(`${BASE}/__test/fact`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          conv_id,
+          text: 'He carries a silver locket',
+          score: 0.4,
+          salience: 0.4,
+        }),
+      })
+    ).json();
     const fid = f.fact.id;
 
     // stream with text overlapping the fact
@@ -74,10 +94,12 @@ test('memory.shape emits and reinforces fact', async ()=>{
 
     // verify fact score increased
     const facts = await (await fetch(`${BASE}/__test/facts?conv_id=${conv_id}`)).json();
-    const after = facts.facts.find(x=>x.id===fid);
+    const after = facts.facts.find((x) => x.id === fid);
     assert.ok(after.score >= 0.4, 'score should be >= starting score');
   } finally {
-    try { child.kill('SIGTERM'); } catch {}
+    try {
+      child.kill('SIGTERM');
+    } catch {}
     await new Promise((r) => child.on('exit', r));
   }
 });

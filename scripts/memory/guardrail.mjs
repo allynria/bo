@@ -12,8 +12,12 @@ export function setGuardHint(convId, text, { ttlTurns = 2 } = {}) {
   if (!convId || !text) return;
   const maxChars = Number(process.env.GUARD_HINT_MAX_CHARS || 180);
   const clean = SafeText.clamp(SafeText.stripDangerous(String(text || '')), maxChars);
-  HINTS.set(convId, { text: clean, turnsLeft: Math.max(1, Number(ttlTurns)||1), ts: Date.now() });
-  sampled('debug', 0.05, `[guardrail] set hint len=${clean.length} ttl=${Math.max(1, Number(ttlTurns)||1)}`);
+  HINTS.set(convId, { text: clean, turnsLeft: Math.max(1, Number(ttlTurns) || 1), ts: Date.now() });
+  sampled(
+    'debug',
+    0.05,
+    `[guardrail] set hint len=${clean.length} ttl=${Math.max(1, Number(ttlTurns) || 1)}`
+  );
 }
 
 export function getGuardHint(convId) {
@@ -40,22 +44,22 @@ export function clearGuardHint(convId) {
 // Produces a gentle narrative/inner-thought recap that references a recent fact/feeling/setting.
 export async function generateGuardOneLiner({ convId, pov = 'she', maxChars = 180 }) {
   const snap = await shadowSnapshot(convId);
-  const { facets=[] } = await loadFacets({ convId, topK: 2 });
+  const { facets = [] } = await loadFacets({ convId, topK: 2 });
   const turns = Array.isArray(snap?.turns) ? snap.turns.slice(-6) : [];
 
   // Pick a small number of salient cues
   const facts = Array.isArray(snap?.facts) ? snap.facts : [];
-  const location = facts.find(f => f.type==='location')?.val;
-  const promise  = facts.find(f => f.type==='promise')?.val;
-  const trigger  = facts.find(f => f.type==='trigger')?.val;
-  const lastUser = [...turns].reverse().find(t=>t.role==='user')?.text || '';
+  const location = facts.find((f) => f.type === 'location')?.val;
+  const promise = facts.find((f) => f.type === 'promise')?.val;
+  const trigger = facts.find((f) => f.type === 'trigger')?.val;
+  const lastUser = [...turns].reverse().find((t) => t.role === 'user')?.text || '';
 
   // Small synthesizer with graceful priorities
   let parts = [];
   if (promise) parts.push(`the promise`);
   if (trigger) parts.push(trigger.toLowerCase());
   if (location) parts.push(location.toLowerCase());
-  const cue = parts.slice(0,2).join(' and ');
+  const cue = parts.slice(0, 2).join(' and ');
 
   // Pull a facet for color
   const facet = facets[0]?.trait || facets[0]?.memory || facets[0]?.desc || '';
@@ -65,17 +69,20 @@ export async function generateGuardOneLiner({ convId, pov = 'she', maxChars = 18
     `${capitalize(pov)} still carried ${cue || 'the weight of last night'}.`,
     `${capitalize(pov)} remembered ${cue || 'the way everything changed'}.`,
     `A small echo lingered — ${cue || 'unspoken vows and old fears'}.`,
-    `${capitalize(pov)}’s thoughts snagged on ${cue || 'what wasn’t said'}.`
+    `${capitalize(pov)}’s thoughts snagged on ${cue || 'what wasn’t said'}.`,
   ];
 
   // Pick shortest that fits + add facet flavor if available
-  let line = candidates.sort((a,b)=>a.length-b.length)[0];
+  let line = candidates.sort((a, b) => a.length - b.length)[0];
   if (facet && line.length + facet.length + 2 < maxChars) {
     line = `${line} ${facetToClause(facet)}`;
   }
   // If nothing resolved, fall back to last user hint
   if (!line && lastUser) line = `${capitalize(pov)} replayed those words in silence.`;
-  const clean = SafeText.clamp(SafeText.stripDangerous(String(line || `A faint memory surfaced.`)), maxChars);
+  const clean = SafeText.clamp(
+    SafeText.stripDangerous(String(line || `A faint memory surfaced.`)),
+    maxChars
+  );
   sampled('debug', 0.05, `[guardrail] one_liner len=${clean.length}`);
   return clean;
 }
@@ -87,11 +94,11 @@ function facetToClause(f) {
 }
 
 function trimTo(s, n) {
-  s = String(s||'');
-  return s.length <= n ? s : s.slice(0, Math.max(0, n-1)).trimEnd() + '…';
+  s = String(s || '');
+  return s.length <= n ? s : s.slice(0, Math.max(0, n - 1)).trimEnd() + '…';
 }
 
 function capitalize(s) {
-  s = String(s||'');
-  return s ? s[0].toUpperCase()+s.slice(1) : s;
+  s = String(s || '');
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
 }

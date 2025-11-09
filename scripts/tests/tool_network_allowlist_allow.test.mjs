@@ -7,14 +7,31 @@ import { spawn } from 'node:child_process';
 function runWorkerEnv(env, opts = {}) {
   const script = path.join(process.cwd(), 'scripts', 'tool_isolation_worker.mjs');
   const memMb = Number(opts.memoryMb || 64);
-  const child = spawn(process.execPath, [`--max-old-space-size=${memMb}`, script], { env: { ...process.env, ...env } });
+  const child = spawn(process.execPath, [`--max-old-space-size=${memMb}`, script], {
+    env: { ...process.env, ...env },
+  });
   let stdout = '';
   let stderr = '';
-  child.stdout.on('data', (d) => { stdout += d.toString(); });
-  child.stderr.on('data', (d) => { stderr += d.toString(); });
+  child.stdout.on('data', (d) => {
+    stdout += d.toString();
+  });
+  child.stderr.on('data', (d) => {
+    stderr += d.toString();
+  });
   return new Promise((resolve) => {
-    const to = setTimeout(() => { try { child.kill('SIGKILL'); } catch {}; resolve({ code: -1, stdout, stderr, timeout: true }); }, Math.max(500, Number(env.TOOL_TIMEOUT_MS || 2000)));
-    child.on('exit', (code) => { clearTimeout(to); resolve({ code, stdout, stderr }); });
+    const to = setTimeout(
+      () => {
+        try {
+          child.kill('SIGKILL');
+        } catch {}
+        resolve({ code: -1, stdout, stderr, timeout: true });
+      },
+      Math.max(500, Number(env.TOOL_TIMEOUT_MS || 2000))
+    );
+    child.on('exit', (code) => {
+      clearTimeout(to);
+      resolve({ code, stdout, stderr });
+    });
   });
 }
 
@@ -27,7 +44,7 @@ test('Tool isolation worker: allows network when host:port is allowlisted', asyn
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const addr = server.address();
-  const port = typeof addr === 'object' ? (addr.port || 0) : 0;
+  const port = typeof addr === 'object' ? addr.port || 0 : 0;
   const url = `http://127.0.0.1:${port}/`;
 
   try {
@@ -35,7 +52,7 @@ test('Tool isolation worker: allows network when host:port is allowlisted', asyn
       TOOL_OP: 'fetch_url',
       TOOL_FETCH_URL: url,
       TOOL_NET_ALLOWLIST: JSON.stringify([`127.0.0.1:${port}`]),
-      TOOL_FAIL_CLOSED: '1'
+      TOOL_FAIL_CLOSED: '1',
     };
     const r = await runWorkerEnv(env);
     assert.equal(r.code, 0, `worker exited OK: ${r.stderr}`);
@@ -44,7 +61,8 @@ test('Tool isolation worker: allows network when host:port is allowlisted', asyn
     assert.equal(payload.statusCode, 200, 'status code 200');
     assert.ok(Number(payload.bytes || 0) > 0, 'received some bytes');
   } finally {
-    try { server.close(); } catch {}
+    try {
+      server.close();
+    } catch {}
   }
 });
-

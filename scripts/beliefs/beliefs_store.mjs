@@ -15,7 +15,7 @@ export function addBelief(convId, { by = 'world', text, weight = 1, tags = [] })
   const arr = beliefs.get(convId) || [];
   // Deduplicate: case-insensitive exact text match
   const key = norm(text);
-  if (arr.some(b => norm(b.text) === key)) return false;
+  if (arr.some((b) => norm(b.text) === key)) return false;
   arr.push({ by, text: String(text), weight: Number(weight) || 1, ts: Date.now(), tags });
   beliefs.set(convId, arr);
   return true;
@@ -51,7 +51,7 @@ export function selectContradictedBeliefs(convId, userText) {
     }
   }
   // Sort: higher weight first, then recency
-  conflicts.sort((a, b) => (b.weight - a.weight) || (b.ts - a.ts));
+  conflicts.sort((a, b) => b.weight - a.weight || b.ts - a.ts);
   return conflicts;
 }
 
@@ -74,5 +74,6 @@ function hasNegationConflict(utter, belief) {
   return (impossible && attempt) || flips;
 }
 
-function norm(s) { return String(s).toLowerCase().trim(); }
-
+function norm(s) {
+  return String(s).toLowerCase().trim();
+}

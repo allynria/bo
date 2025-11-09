@@ -40,9 +40,12 @@ async function start() {
     CORS_ALLOWLIST: ' `http://ok.test` ',
     // beats on (not required, but nice)
     BEATS_ENABLED: '1',
-    ULTRA_DEFAULT_ON: '1'
+    ULTRA_DEFAULT_ON: '1',
   };
-  const child = spawn(process.execPath, ['scripts/service.js'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['scripts/service.js'], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   await onceReady();
   return child;
 }
@@ -67,7 +70,11 @@ test('style hedge switches to backup on first token', async () => {
   try {
     const q = encodeURIComponent('She waits—tense—then shouts: Go!');
     const url = `/v1/conv/stream?conv_id=HSTYLE1&turn=0&engine=urga&text=${q}&ts=${Date.now()}`;
-    const buf = await sse(url, { origin: ' `http://ok.test` ', authorization: 'Bearer test-token', accept: 'text/event-stream' });
+    const buf = await sse(url, {
+      origin: ' `http://ok.test` ',
+      authorization: 'Bearer test-token',
+      accept: 'text/event-stream',
+    });
     // show-off events
     assert.ok(buf.includes('event: style.hedge.start'), 'should announce hedge start');
     assert.ok(buf.includes('event: style.hedge.switch'), 'should cut over to faster style stream');
@@ -75,4 +82,3 @@ test('style hedge switches to backup on first token', async () => {
     svc.kill('SIGINT');
   }
 });
-

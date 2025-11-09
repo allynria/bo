@@ -7,7 +7,7 @@ const url = `${base}/v1/conv/stream?conv_id=demo&turn=1&engine=urga&text=${encod
 const headers = {
   origin: 'http://ok.test',
   authorization: 'Bearer test-token',
-  accept: 'text/event-stream'
+  accept: 'text/event-stream',
 };
 
 const req = http.request(url, { method: 'GET', headers }, (res) => {
@@ -28,5 +28,8 @@ const req = http.request(url, { method: 'GET', headers }, (res) => {
   });
   res.on('end', () => process.exit(0));
 });
-req.on('error', (e) => { console.error('ERR', e.message); process.exit(1); });
+req.on('error', (e) => {
+  console.error('ERR', e.message);
+  process.exit(1);
+});
 req.end();

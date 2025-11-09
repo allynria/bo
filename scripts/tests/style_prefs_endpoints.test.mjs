@@ -6,29 +6,39 @@ import { spawn } from 'node:child_process';
 const PORT = process.env.PORT || '3310';
 const BASE = `http://127.0.0.1:${PORT}`;
 
-function req(method, path, body, headers={}) {
+function req(method, path, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const data = body ? Buffer.from(JSON.stringify(body)) : null;
-    const r = http.request(`${BASE}${path}`, {
-      method,
-      headers: {
-        'content-type': 'application/json',
-        ...(headers||{})
+    const r = http.request(
+      `${BASE}${path}`,
+      {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          ...(headers || {}),
+        },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (d) => chunks.push(d));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          resolve({ status: res.statusCode, text, json: safeJson(text) });
+        });
       }
-    }, (res) => {
-      const chunks = [];
-      res.on('data', d => chunks.push(d));
-      res.on('end', () => {
-        const text = Buffer.concat(chunks).toString('utf8');
-        resolve({ status: res.statusCode, text, json: safeJson(text) });
-      });
-    });
+    );
     r.on('error', reject);
     if (data) r.write(data);
     r.end();
   });
 }
-function safeJson(s){ try { return JSON.parse(s); } catch { return null; } }
+function safeJson(s) {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
 
 async function startService() {
   const env = {
@@ -40,7 +50,10 @@ async function startService() {
     CONV_AUTH: 'test-token',
     CORS_ALLOWLIST: ' `http://ok.test` ',
   };
-  const child = spawn(process.execPath, ['scripts/service.js'], { env, stdio:['ignore','pipe','pipe'] });
+  const child = spawn(process.execPath, ['scripts/service.js'], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   await onceReady();
   return child;
 }
@@ -48,9 +61,14 @@ async function startService() {
 function onceReady() {
   return new Promise((resolve) => {
     const t = setInterval(() => {
-      http.get({ host:'127.0.0.1', port:Number(PORT), path:'/healthz' }, r => {
-        if (r.statusCode === 200) { clearInterval(t); resolve(); }
-      }).on('error', ()=>{});
+      http
+        .get({ host: '127.0.0.1', port: Number(PORT), path: '/healthz' }, (r) => {
+          if (r.statusCode === 200) {
+            clearInterval(t);
+            resolve();
+          }
+        })
+        .on('error', () => {});
     }, 100);
   });
 }

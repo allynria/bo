@@ -5,9 +5,11 @@ import * as path from 'node:path';
 import { promises as fsp } from 'node:fs';
 
 function backendPathForKey(key) {
-  const base = String(process?.env?.TMPDIR || process?.env?.TEMP || process?.env?.TMP || os.tmpdir());
+  const base = String(
+    process?.env?.TMPDIR || process?.env?.TEMP || process?.env?.TMP || os.tmpdir()
+  );
   const hex = Buffer.from(String(key)).toString('hex');
-  const shard = (hex.slice(0, 2) || '00');
+  const shard = hex.slice(0, 2) || '00';
   return path.join(base, 'urga_rl', shard, `${hex}.json`);
 }
 
@@ -29,7 +31,10 @@ test('GC race safety: hammer key while GC runs; no deletion or lock starvation',
 
   // Seed the file
   await rl.allow(key);
-  const existsSeed = await fsp.stat(p).then(() => true).catch(() => false);
+  const existsSeed = await fsp
+    .stat(p)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(existsSeed, true, 'backend file should exist at seed');
 
   // Hammer for 2 seconds while GC runs
@@ -44,8 +49,10 @@ test('GC race safety: hammer key while GC runs; no deletion or lock starvation',
   }
 
   // After hammer+GC, file should still exist; no lock starvation exceptions
-  const existsAfter = await fsp.stat(p).then(() => true).catch(() => false);
+  const existsAfter = await fsp
+    .stat(p)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(existsAfter, true, 'backend file should not be deleted by GC while live');
   assert.equal(errors, 0, 'no exceptions expected due to lock starvation');
 });
-

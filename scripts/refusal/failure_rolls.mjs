@@ -39,7 +39,7 @@ const DEFAULTS = {
   })(),
   min: num(process.env.FAIL_ROLLS_MIN ?? process.env.FAILROLL_MIN, 0.05),
   max: num(process.env.FAIL_ROLLS_MAX ?? process.env.FAILROLL_MAX, 0.95),
-  style: (process.env.FAIL_ROLLS_STYLE || process.env.FAILROLL_STYLE || 'neutral').toLowerCase()
+  style: (process.env.FAIL_ROLLS_STYLE || process.env.FAILROLL_STYLE || 'neutral').toLowerCase(),
 };
 
 const RISKY = [
@@ -66,16 +66,22 @@ export function assessRiskyAction({ text, trust = 0.5, suspicion = 0.0, tension 
 
   const { base, trustBonus, suspPenalty, tensionBonus, min, max } = DEFAULTS;
   const chanceRaw =
-    base
-    + clamp01(trust) * trustBonus
-    + clamp01(tension) * tensionBonus
-    - clamp01(suspicion) * suspPenalty;
+    base +
+    clamp01(trust) * trustBonus +
+    clamp01(tension) * tensionBonus -
+    clamp01(suspicion) * suspPenalty;
 
   const chance = clamp(min, max, chanceRaw);
   const success = rng() < chance;
   const pct = Math.round(chance * 100);
-  sampled('debug', 0.05, `[failure_rolls] action=${action} p=${pct}% success=${success ? '1' : '0'}`);
-  const hint = sanitizeHint(renderHint(action, chance, success, String(style || DEFAULTS.style || 'neutral').toLowerCase()));
+  sampled(
+    'debug',
+    0.05,
+    `[failure_rolls] action=${action} p=${pct}% success=${success ? '1' : '0'}`
+  );
+  const hint = sanitizeHint(
+    renderHint(action, chance, success, String(style || DEFAULTS.style || 'neutral').toLowerCase())
+  );
   return { action, chance, success, hint };
 }
 
@@ -110,9 +116,16 @@ function title(s) {
 function clamp(lo, hi, v) {
   return Math.max(lo, Math.min(hi, v));
 }
-function clamp01(v) { return clamp(0, 1, Number(v || 0)); }
-function num(x, d) { const n = Number(x); return Number.isFinite(n) ? n : d; }
-function processEnabled() { return String(process.env.FAIL_ROLLS_ENABLED || process.env.FAILROLL_ENABLED || '') === '1'; }
+function clamp01(v) {
+  return clamp(0, 1, Number(v || 0));
+}
+function num(x, d) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : d;
+}
+function processEnabled() {
+  return String(process.env.FAIL_ROLLS_ENABLED || process.env.FAILROLL_ENABLED || '') === '1';
+}
 
 function sanitizeHint(s) {
   const maxChars = Number(process.env.FAIL_ROLLS_HINT_MAX || 160);

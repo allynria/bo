@@ -60,7 +60,9 @@ function sse(path, headers = {}) {
         if (out.length > 10) resolve(out);
       });
       // Prevent indefinite wait: resolve on end or after timeout
-      res.on('end', () => { if (out.length > 0) resolve(out); });
+      res.on('end', () => {
+        if (out.length > 0) resolve(out);
+      });
       setTimeout(() => resolve(out), 3500);
     });
     req.on('error', reject);

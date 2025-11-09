@@ -43,9 +43,10 @@ export function computeRiskScore(params, cfg = {}) {
   const suspicionTerm = Math.max(0, Math.min(1, suspicion)) * 30;
   const tensionTerm = Math.max(0, Math.min(1, tension)) * 20;
 
-  const noiseTerm = noisePct ? (noisePct * (hash01(String(params?.userText || '')) - 0.5) * 2) : 0;
+  const noiseTerm = noisePct ? noisePct * (hash01(String(params?.userText || '')) - 0.5) * 2 : 0;
 
-  const score = basePct + hintBonus + beliefBonus + trustTerm + suspicionTerm + tensionTerm + noiseTerm;
+  const score =
+    basePct + hintBonus + beliefBonus + trustTerm + suspicionTerm + tensionTerm + noiseTerm;
   return Math.max(1, Math.min(99, Math.round(score)));
 }
 
@@ -62,4 +63,3 @@ function hash01(s) {
   const n = parseInt(h.slice(0, 8), 16) >>> 0;
   return (n % 10000) / 10000;
 }
-

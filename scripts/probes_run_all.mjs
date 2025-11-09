@@ -27,7 +27,11 @@ function tryParseJson(s) {
     const i = s.lastIndexOf('{');
     if (i >= 0) {
       const frag = s.slice(i);
-      try { return JSON.parse(frag); } catch { /* ignore */ }
+      try {
+        return JSON.parse(frag);
+      } catch {
+        /* ignore */
+      }
     }
     return null;
   }
@@ -47,13 +51,15 @@ function printFailureOnly(tag, payload) {
       return;
     }
     for (const r of fails) {
-      console.error(JSON.stringify({
-        case: r.case,
-        provider: r.provider,
-        expected_provider: r.expected_provider,
-        model: r.model,
-        expected_model: r.expected_model
-      }));
+      console.error(
+        JSON.stringify({
+          case: r.case,
+          provider: r.provider,
+          expected_provider: r.expected_provider,
+          model: r.model,
+          expected_model: r.expected_model,
+        })
+      );
     }
   } else if (tag === 'stream') {
     const reason = payload.reason || 'streaming assertions failed';
@@ -68,9 +74,18 @@ async function main() {
   const env = await runProbe('scripts/dev_probe_provider_env.mjs');
   const envAb = await runProbe('scripts/dev_probe_provider_env_ab.mjs');
 
-  const streamJson = (stream.code === 0 ? tryParseJson(stream.stdout) : tryParseJson(stream.stderr) || tryParseJson(stream.stdout));
-  const envJson = (env.code === 0 ? tryParseJson(env.stdout) : tryParseJson(env.stderr) || tryParseJson(env.stdout));
-  const envAbJson = (envAb.code === 0 ? tryParseJson(envAb.stdout) : tryParseJson(envAb.stderr) || tryParseJson(envAb.stdout));
+  const streamJson =
+    stream.code === 0
+      ? tryParseJson(stream.stdout)
+      : tryParseJson(stream.stderr) || tryParseJson(stream.stdout);
+  const envJson =
+    env.code === 0
+      ? tryParseJson(env.stdout)
+      : tryParseJson(env.stderr) || tryParseJson(env.stdout);
+  const envAbJson =
+    envAb.code === 0
+      ? tryParseJson(envAb.stdout)
+      : tryParseJson(envAb.stderr) || tryParseJson(envAb.stdout);
 
   let failed = false;
   if (stream.code !== 0) {
@@ -95,6 +110,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(JSON.stringify({ ok: false, error: String(err && err.message || err) }));
+  console.error(JSON.stringify({ ok: false, error: String((err && err.message) || err) }));
   process.exitCode = 1;
 });

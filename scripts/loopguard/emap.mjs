@@ -97,4 +97,3 @@ export function emapRecord({ convId, text, cfg }) {
   const cap = Math.max(cfg.historyN * 2, 20); // modest cap
   if (store.vecs.length > cap) store.vecs.splice(0, store.vecs.length - cap);
 }
-

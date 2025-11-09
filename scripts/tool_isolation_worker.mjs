@@ -15,15 +15,23 @@ function parseList(input) {
     const j = JSON.parse(input);
     if (Array.isArray(j)) return j.map(String);
   } catch {}
-  return String(input).split(',').map(s => s.trim()).filter(Boolean);
+  return String(input)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 let FS_ALLOW = parseList(process.env.TOOL_FS_ALLOWLIST || '');
 let NET_ALLOW = parseList(process.env.TOOL_NET_ALLOWLIST || '');
 const FAIL_CLOSED = String(process.env.TOOL_FAIL_CLOSED || '1').toLowerCase();
 const FAIL_CLOSED_ENABLED = FAIL_CLOSED === '1' || FAIL_CLOSED === 'true';
-const POLICY_REQUIRED = String(process.env.TOOL_POLICY_REQUIRED || '0').toLowerCase() === '1' || String(process.env.TOOL_POLICY_REQUIRED || '').toLowerCase() === 'true';
-const NO_NETWORK_FLAG = process.argv.includes('--no-network') || String(process.env.TOOL_NO_NETWORK || '0').toLowerCase() === '1' || String(process.env.TOOL_NO_NETWORK || '').toLowerCase() === 'true';
+const POLICY_REQUIRED =
+  String(process.env.TOOL_POLICY_REQUIRED || '0').toLowerCase() === '1' ||
+  String(process.env.TOOL_POLICY_REQUIRED || '').toLowerCase() === 'true';
+const NO_NETWORK_FLAG =
+  process.argv.includes('--no-network') ||
+  String(process.env.TOOL_NO_NETWORK || '0').toLowerCase() === '1' ||
+  String(process.env.TOOL_NO_NETWORK || '').toLowerCase() === 'true';
 
 let POLICY = null;
 
@@ -57,25 +65,43 @@ async function initPolicy() {
     const effectiveTimeout = Math.max(timeoutMs || 0, cap || 0);
     if (effectiveTimeout > 0) {
       const timer = setTimeout(() => {
-        try { console.error(JSON.stringify({ ok: false, error: 'timeout_cap_exceeded' })); } catch {}
+        try {
+          console.error(JSON.stringify({ ok: false, error: 'timeout_cap_exceeded' }));
+        } catch {}
         process.exitCode = 124;
-        try { process.exit(124); } catch {}
+        try {
+          process.exit(124);
+        } catch {}
       }, effectiveTimeout);
-      try { timer.unref(); } catch {}
+      try {
+        timer.unref();
+      } catch {}
     }
   } catch (e) {
     // Fail closed on policy init errors
-    const out = { ok: false, error: String(e && e.message || e), code: e && e.code || undefined };
-    try { console.log(JSON.stringify(out)); } catch {}
+    const out = {
+      ok: false,
+      error: String((e && e.message) || e),
+      code: (e && e.code) || undefined,
+    };
+    try {
+      console.log(JSON.stringify(out));
+    } catch {}
     process.exitCode = 1;
     throw e; // to stop further initialization
   }
 }
 
 function resolveAllowPaths(list) {
-  return list.map(p => {
-    try { return path.resolve(p); } catch { return p; }
-  }).filter(Boolean);
+  return list
+    .map((p) => {
+      try {
+        return path.resolve(p);
+      } catch {
+        return p;
+      }
+    })
+    .filter(Boolean);
 }
 
 let ALLOW_PATHS = resolveAllowPaths(FS_ALLOW);
@@ -134,7 +160,7 @@ const safeFs = {
       throw err;
     }
     return await AsyncFS.mkdir(p, opts);
-  }
+  },
 };
 
 // Patch HTTP/HTTPS to enforce host allowlist
@@ -160,15 +186,24 @@ function guardNet() {
         throw e;
       }
     };
-    mod.request = function(options, cb) { check(options); return origReq(options, cb); };
-    mod.get = function(options, cb) { check(options); return origGet(options, cb); };
+    mod.request = function (options, cb) {
+      check(options);
+      return origReq(options, cb);
+    };
+    mod.get = function (options, cb) {
+      check(options);
+      return origGet(options, cb);
+    };
   };
-  try { wrapRequest(http, 'http.request'); wrapRequest(https, 'https.request'); } catch {}
+  try {
+    wrapRequest(http, 'http.request');
+    wrapRequest(https, 'https.request');
+  } catch {}
   try {
     if (globalThis.fetch) {
       const origFetch = globalThis.fetch.bind(globalThis);
-      globalThis.fetch = async function(resource, init) {
-        const urlStr = typeof resource === 'string' ? resource : (resource?.url || '');
+      globalThis.fetch = async function (resource, init) {
+        const urlStr = typeof resource === 'string' ? resource : resource?.url || '';
         if (FAIL_CLOSED_ENABLED && !isHostAllowed(urlStr)) {
           const err = new Error(`policy_violation: fetch denied for ${urlStr}`);
           err.code = 'POLICY_VIOLATION';
@@ -186,7 +221,9 @@ function guardNet() {
 try {
   await initPolicy();
 } catch {
-  try { process.exit(1); } catch {}
+  try {
+    process.exit(1);
+  } catch {}
 }
 ALLOW_PATHS = resolveAllowPaths(FS_ALLOW);
 guardNet();
@@ -215,16 +252,29 @@ async function netProbe(urlStr) {
     try {
       const u = new URL(urlStr);
       const mod = u.protocol === 'https:' ? https : http;
-      const req = mod.request({ method: 'HEAD', hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname || '/', protocol: u.protocol }, (res) => {
-        try { res.resume(); } catch {}
-        resolve({ ok: true, statusCode: res.statusCode });
-      });
+      const req = mod.request(
+        {
+          method: 'HEAD',
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname || '/',
+          protocol: u.protocol,
+        },
+        (res) => {
+          try {
+            res.resume();
+          } catch {}
+          resolve({ ok: true, statusCode: res.statusCode });
+        }
+      );
       req.on('error', (e) => {
-        const retryable = ['ETIMEDOUT','EAI_AGAIN','ECONNRESET'].includes(String(e?.code || ''));
+        const retryable = ['ETIMEDOUT', 'EAI_AGAIN', 'ECONNRESET'].includes(String(e?.code || ''));
         reject(Object.assign(new Error(String(e?.message || e)), { code: e?.code, retryable }));
       });
       req.setTimeout(Math.max(1000, Number(process.env.TOOL_NET_TIMEOUT_MS || 3000)), () => {
-        try { req.destroy(new Error('timeout')); } catch {}
+        try {
+          req.destroy(new Error('timeout'));
+        } catch {}
       });
       req.end();
     } catch (e) {
@@ -239,21 +289,36 @@ async function fetchUrl(urlStr) {
     try {
       const u = new URL(urlStr);
       const mod = u.protocol === 'https:' ? https : http;
-      const req = mod.request({ method: 'GET', hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname || '/', protocol: u.protocol }, (res) => {
-        let bytes = 0;
-        try {
-          res.on('data', (chunk) => { bytes += (chunk?.length || 0); });
-          res.on('end', () => { resolve({ ok: true, statusCode: res.statusCode, bytes }); });
-        } catch (e) {
-          resolve({ ok: true, statusCode: res.statusCode, bytes });
+      const req = mod.request(
+        {
+          method: 'GET',
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname || '/',
+          protocol: u.protocol,
+        },
+        (res) => {
+          let bytes = 0;
+          try {
+            res.on('data', (chunk) => {
+              bytes += chunk?.length || 0;
+            });
+            res.on('end', () => {
+              resolve({ ok: true, statusCode: res.statusCode, bytes });
+            });
+          } catch (e) {
+            resolve({ ok: true, statusCode: res.statusCode, bytes });
+          }
         }
-      });
+      );
       req.on('error', (e) => {
-        const retryable = ['ETIMEDOUT','EAI_AGAIN','ECONNRESET'].includes(String(e?.code || ''));
+        const retryable = ['ETIMEDOUT', 'EAI_AGAIN', 'ECONNRESET'].includes(String(e?.code || ''));
         reject(Object.assign(new Error(String(e?.message || e)), { code: e?.code, retryable }));
       });
       req.setTimeout(Math.max(1000, Number(process.env.TOOL_NET_TIMEOUT_MS || 3000)), () => {
-        try { req.destroy(new Error('timeout')); } catch {}
+        try {
+          req.destroy(new Error('timeout'));
+        } catch {}
       });
       req.end();
     } catch (e) {
@@ -269,31 +334,40 @@ async function postJson(urlStr, bodyStr) {
       const u = new URL(urlStr);
       const mod = u.protocol === 'https:' ? https : http;
       const data = Buffer.from(String(bodyStr || ''), 'utf8');
-      const req = mod.request({
-        method: 'POST',
-        hostname: u.hostname,
-        port: u.port || (u.protocol === 'https:' ? 443 : 80),
-        path: u.pathname || '/',
-        protocol: u.protocol,
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': data.length
+      const req = mod.request(
+        {
+          method: 'POST',
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname || '/',
+          protocol: u.protocol,
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length,
+          },
+        },
+        (res) => {
+          let bytes = 0;
+          try {
+            res.on('data', (chunk) => {
+              bytes += chunk?.length || 0;
+            });
+            res.on('end', () => {
+              resolve({ ok: true, statusCode: res.statusCode, bytes });
+            });
+          } catch (e) {
+            resolve({ ok: true, statusCode: res.statusCode, bytes });
+          }
         }
-      }, (res) => {
-        let bytes = 0;
-        try {
-          res.on('data', (chunk) => { bytes += (chunk?.length || 0); });
-          res.on('end', () => { resolve({ ok: true, statusCode: res.statusCode, bytes }); });
-        } catch (e) {
-          resolve({ ok: true, statusCode: res.statusCode, bytes });
-        }
-      });
+      );
       req.on('error', (e) => {
-        const retryable = ['ETIMEDOUT','EAI_AGAIN','ECONNRESET'].includes(String(e?.code || ''));
+        const retryable = ['ETIMEDOUT', 'EAI_AGAIN', 'ECONNRESET'].includes(String(e?.code || ''));
         reject(Object.assign(new Error(String(e?.message || e)), { code: e?.code, retryable }));
       });
       req.setTimeout(Math.max(1000, Number(process.env.TOOL_NET_TIMEOUT_MS || 3000)), () => {
-        try { req.destroy(new Error('timeout')); } catch {}
+        try {
+          req.destroy(new Error('timeout'));
+        } catch {}
       });
       req.write(data);
       req.end();
@@ -347,7 +421,9 @@ async function main() {
     if (op === 'net_probe') {
       const urlStr = String(process.env.TOOL_NET_PROBE || '');
       if (!urlStr) throw new Error('missing TOOL_NET_PROBE');
-      const result = await netProbe(urlStr).catch((e) => { throw e; });
+      const result = await netProbe(urlStr).catch((e) => {
+        throw e;
+      });
       console.log(JSON.stringify(result));
       process.exitCode = 0;
       return;
@@ -355,7 +431,9 @@ async function main() {
     if (op === 'fetch_url') {
       const urlStr = String(process.env.TOOL_FETCH_URL || '');
       if (!urlStr) throw new Error('missing TOOL_FETCH_URL');
-      const result = await fetchUrl(urlStr).catch((e) => { throw e; });
+      const result = await fetchUrl(urlStr).catch((e) => {
+        throw e;
+      });
       console.log(JSON.stringify(result));
       process.exitCode = 0;
       return;
@@ -364,7 +442,9 @@ async function main() {
       const urlStr = String(process.env.TOOL_POST_URL || '');
       const bodyStr = String(process.env.TOOL_POST_BODY_JSON || '');
       if (!urlStr) throw new Error('missing TOOL_POST_URL');
-      const result = await postJson(urlStr, bodyStr).catch((e) => { throw e; });
+      const result = await postJson(urlStr, bodyStr).catch((e) => {
+        throw e;
+      });
       console.log(JSON.stringify(result));
       process.exitCode = 0;
       return;
@@ -372,7 +452,9 @@ async function main() {
     if (op === 'read_file') {
       const p = String(process.env.TOOL_READ_PATH || '');
       if (!p) throw new Error('missing TOOL_READ_PATH');
-      const result = await readFileB64(p).catch((e) => { throw e; });
+      const result = await readFileB64(p).catch((e) => {
+        throw e;
+      });
       console.log(JSON.stringify(result));
       process.exitCode = 0;
       return;
@@ -381,7 +463,9 @@ async function main() {
       const p = String(process.env.TOOL_WRITE_PATH || '');
       const b64 = String(process.env.TOOL_WRITE_CONTENT_B64 || '');
       if (!p) throw new Error('missing TOOL_WRITE_PATH');
-      const result = await writeFileB64(p, b64).catch((e) => { throw e; });
+      const result = await writeFileB64(p, b64).catch((e) => {
+        throw e;
+      });
       console.log(JSON.stringify(result));
       process.exitCode = 0;
       return;
@@ -389,15 +473,24 @@ async function main() {
     if (op === 'read_json') {
       const p = String(process.env.TOOL_READ_JSON_PATH || '');
       if (!p) throw new Error('missing TOOL_READ_JSON_PATH');
-      const result = await readJson(p).catch((e) => { throw e; });
+      const result = await readJson(p).catch((e) => {
+        throw e;
+      });
       console.log(JSON.stringify(result));
       process.exitCode = 0;
       return;
     }
     throw new Error(`unknown TOOL_OP: ${op}`);
   } catch (e) {
-    const out = { ok: false, error: String(e && e.message || e), code: e && e.code || undefined, retryable: Boolean(e && e.retryable) };
-    try { console.log(JSON.stringify(out)); } catch {}
+    const out = {
+      ok: false,
+      error: String((e && e.message) || e),
+      code: (e && e.code) || undefined,
+      retryable: Boolean(e && e.retryable),
+    };
+    try {
+      console.log(JSON.stringify(out));
+    } catch {}
     process.exitCode = 1;
   }
 }

@@ -19,4 +19,3 @@
   - `--max-old-space-size` pinned via `NODE_OPTIONS` for CI runs
   - RSS ceiling alert: `RSS_CEILING_MB` configurable; breach emits `rss_ceiling_breach_total`
   - Soak budget: RSS monotonic growth ≤ 5%; heap snapshot size proxy ≤ 5%
-

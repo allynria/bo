@@ -26,12 +26,15 @@ function startService(env = {}) {
 async function waitForUp(port, timeoutMs = 4000) {
   const t0 = Date.now();
   let lastErr = null;
-  while ((Date.now() - t0) < timeoutMs) {
+  while (Date.now() - t0 < timeoutMs) {
     try {
       await new Promise((resolve, reject) => {
-        http.get({ hostname: '127.0.0.1', port, path: '/healthz' }, (res) => {
-          if (res.statusCode === 200) resolve(); else reject(new Error('bad_status'));
-        }).on('error', reject);
+        http
+          .get({ hostname: '127.0.0.1', port, path: '/healthz' }, (res) => {
+            if (res.statusCode === 200) resolve();
+            else reject(new Error('bad_status'));
+          })
+          .on('error', reject);
       });
       return true;
     } catch (e) {
@@ -59,7 +62,9 @@ function sse(port, path, headers = {}) {
         }
       });
       // Fallbacks to ensure the promise resolves even if event does not appear
-      res.on('end', () => { if (events.length > 0) resolve(events); });
+      res.on('end', () => {
+        if (events.length > 0) resolve(events);
+      });
       setTimeout(() => resolve(events), 3500);
     });
     req.on('error', reject);
@@ -69,33 +74,51 @@ function sse(port, path, headers = {}) {
 
 function getJSON(port, path) {
   return new Promise((resolve, reject) => {
-    http.get({ hostname: '127.0.0.1', port, path }, (res) => {
-      let buf = '';
-      res.on('data', (d) => (buf += d));
-      res.on('end', () => {
-        let json = {};
-        try { json = JSON.parse(buf || '{}'); } catch {}
-        resolve({ status: res.statusCode, json });
-      });
-    }).on('error', reject);
+    http
+      .get({ hostname: '127.0.0.1', port, path }, (res) => {
+        let buf = '';
+        res.on('data', (d) => (buf += d));
+        res.on('end', () => {
+          let json = {};
+          try {
+            json = JSON.parse(buf || '{}');
+          } catch {}
+          resolve({ status: res.statusCode, json });
+        });
+      })
+      .on('error', reject);
   });
 }
 
 test('LoopGuard style nudge emits SSE and increments metric', async (t) => {
   const { child, port } = startService();
-  t.after(() => { try { child.kill('SIGINT'); } catch {} });
+  t.after(() => {
+    try {
+      child.kill('SIGINT');
+    } catch {}
+  });
   await waitForUp(port);
 
   const url = `/v1/conv/stream?conv_id=LGSTYLE1&turn=0&engine=urga&text=${encodeURIComponent('We walk into the crypt quietly.')}&ts=${Date.now()}`;
-  const events = await sse(port, url, { origin: 'http://ok.test', authorization: 'Bearer t', accept: 'text/event-stream' });
+  const events = await sse(port, url, {
+    origin: 'http://ok.test',
+    authorization: 'Bearer t',
+    accept: 'text/event-stream',
+  });
   const styleEvt = events.find((e) => e.startsWith('event: memory.loopguard_style'));
   assert.ok(styleEvt, 'memory.loopguard_style event missing');
-  const dataLine = (styleEvt.split('\n').find((l) => l.startsWith('data:')) || '').replace(/^data:\s*/, '').trim();
+  const dataLine = (styleEvt.split('\n').find((l) => l.startsWith('data:')) || '')
+    .replace(/^data:\s*/, '')
+    .trim();
   const payload = JSON.parse(dataLine || '{}');
   assert.ok(typeof payload.token === 'string' && payload.token.length > 0, 'style token missing');
 
   const metrics = await getJSON(port, '/metrics');
   assert.equal(metrics.status, 200);
-  const hit = Array.isArray(metrics.json?.counters) && metrics.json.counters.some((c) => c.name === 'loopguard_style_nudge_total' && c.labels?.path === 'stream');
+  const hit =
+    Array.isArray(metrics.json?.counters) &&
+    metrics.json.counters.some(
+      (c) => c.name === 'loopguard_style_nudge_total' && c.labels?.path === 'stream'
+    );
   assert.equal(hit, true, 'expected loopguard_style_nudge_total metric with path=stream');
 });

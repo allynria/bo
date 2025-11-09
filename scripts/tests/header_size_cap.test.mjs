@@ -26,7 +26,12 @@ function fetchRaw(url, headers = {}) {
 
 test('header size cap returns 431 on oversized headers', async () => {
   const port = 33000 + Math.floor(Math.random() * 2000);
-  const child = startService({ NODE_ENV: 'production', LOG_JSON: '1', PORT: String(port), MAX_HEADER_BYTES: '64' });
+  const child = startService({
+    NODE_ENV: 'production',
+    LOG_JSON: '1',
+    PORT: String(port),
+    MAX_HEADER_BYTES: '64',
+  });
   const base = `http://localhost:${port}`;
   await waitForUp(base, { timeout: 3000 });
 
@@ -34,6 +39,8 @@ test('header size cap returns 431 on oversized headers', async () => {
   const res = await fetchRaw(`${base}/wait?ms=1`, { 'X-Long-Header': large });
   assert.equal(res.status, 431);
 
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });

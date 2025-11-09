@@ -13,7 +13,7 @@ const STYLE_HEDGE_SECOND_PRESET = process.env.STYLE_HEDGE_SECOND_PRESET || ''; /
 export function pickAltPreset(primaryPreset) {
   if (STYLE_HEDGE_SECOND_PRESET) return String(STYLE_HEDGE_SECOND_PRESET).toLowerCase();
   // very simple rotation that contrasts the common presets
-  const ring = ['terse','poetic','noir','dreamy','snappy'];
+  const ring = ['terse', 'poetic', 'noir', 'dreamy', 'snappy'];
   const i = Math.max(0, ring.indexOf(String(primaryPreset || '').toLowerCase()));
   return ring[(i + 1) % ring.length];
 }
@@ -29,11 +29,19 @@ export function planStyleHedge(ctx, convId, primaryPreset) {
     let tokens = [];
     try {
       const pres = listPresets();
-      const found = pres.find(p => String(p.key || '').toLowerCase() === String(altPreset || '').toLowerCase());
+      const found = pres.find(
+        (p) => String(p.key || '').toLowerCase() === String(altPreset || '').toLowerCase()
+      );
       tokens = Array.isArray(found?.tokens) ? found.tokens : [];
     } catch {}
     if (!Array.isArray(tokens) || tokens.length === 0) return null;
-    const fakeCtx = { vars: { style: { preset: altPreset, tokens }, __selected_model: ctx?.vars?.__selected_model, model: ctx?.vars?.model } };
+    const fakeCtx = {
+      vars: {
+        style: { preset: altPreset, tokens },
+        __selected_model: ctx?.vars?.__selected_model,
+        model: ctx?.vars?.model,
+      },
+    };
     const booster = buildStyleBooster(fakeCtx);
     if (!booster?.text) return null;
     return { altPreset, tokens, booster };
@@ -47,7 +55,12 @@ export function resolveUltraMode(ctx, convId) {
   const hedgeOn = ultraFeatureEnabled(id, STYLE_HEDGE_ENABLED);
   const ent = getEntropyCfgFromEnv();
   const entropyOn = ultraFeatureEnabled(id, !!ent.enabled);
-  return { hedgeOn, entropyOn, entropyMin: Number(ent.min || 0), entropyMinLen: Number(ent.minLen || 0) };
+  return {
+    hedgeOn,
+    entropyOn,
+    entropyMin: Number(ent.min || 0),
+    entropyMinLen: Number(ent.minLen || 0),
+  };
 }
 
 export function applyUltraMode(ctx, convId) {

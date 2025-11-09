@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Simulate rollback path without executing real rollback"
+        description: 'Simulate rollback path without executing real rollback'
         type: boolean
         default: true
 

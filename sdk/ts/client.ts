@@ -75,7 +75,9 @@ export interface SSEStartPayload {
   request_id?: string;
 }
 
-export interface SSEDeltaPayload { text: string }
+export interface SSEDeltaPayload {
+  text: string;
+}
 
 export interface SSEHedgeSwitchPayload {
   from_provider?: string;
@@ -85,7 +87,11 @@ export interface SSEHedgeSwitchPayload {
   reason?: 'hedge' | string;
 }
 
-export interface SSEEndPayload { final: string; idempotent_replay?: boolean; request_id?: string }
+export interface SSEEndPayload {
+  final: string;
+  idempotent_replay?: boolean;
+  request_id?: string;
+}
 
 export type StreamEvent =
   | { event: 'start'; payload: SSEStartPayload }
@@ -94,4 +100,12 @@ export type StreamEvent =
   | { event: 'end'; payload: SSEEndPayload }
   | { event: 'error'; payload: unknown };
 
-export { postV1ConvMessage, postV1ConvCompile, subscribeV1ConvStream, iterateV1ConvStream, computeClientTs, computeClientMac, iterateV1ConvStreamAutoReplay } from '../js/client.mjs';
+export {
+  postV1ConvMessage,
+  postV1ConvCompile,
+  subscribeV1ConvStream,
+  iterateV1ConvStream,
+  computeClientTs,
+  computeClientMac,
+  iterateV1ConvStreamAutoReplay,
+} from '../js/client.mjs';

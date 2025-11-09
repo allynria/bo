@@ -3,8 +3,13 @@
 // rulesCritique: fast heuristic checks against physics/common-sense and supplied beliefs/facts
 // llmCritique: optional micro-LLM stub (no-op here; pluggable if your runtime supports it)
 
-function norm(s) { return String(s || '').toLowerCase(); }
-function hasAny(s, arr) { s = norm(s); return arr.some(k => s.includes(k)); }
+function norm(s) {
+  return String(s || '').toLowerCase();
+}
+function hasAny(s, arr) {
+  s = norm(s);
+  return arr.some((k) => s.includes(k));
+}
 
 export function rulesCritique({ userText, beliefs = [], recentFacts = [] } = {}) {
   const reasons = [];
@@ -54,15 +59,19 @@ export function rulesCritique({ userText, beliefs = [], recentFacts = [] } = {})
   // Recent facts conflicts (door locked vs open, death vs acting)
   try {
     const facts = Array.isArray(recentFacts) ? recentFacts : [];
-    const locked = facts.find(f => /locked|sealed/.test(norm(typeof f === 'string' ? f : f.text || '')));
+    const locked = facts.find((f) =>
+      /locked|sealed/.test(norm(typeof f === 'string' ? f : f.text || ''))
+    );
     if (locked) {
       const bypass = ['walk through', 'go through', 'open the door', 'swing the gate'];
       if (hasAny(t, bypass) && !/(unlock|key|pick the lock|force it)/.test(t)) {
         reasons.push({ code: 'state', msg: 'bypasses locked state without cause' });
       }
     }
-    const death = facts.find(f => /(you|character).*(dead|died)/.test(norm(typeof f === 'string' ? f : f.text || '')));
-    if (death && hasAny(t, ['i stand up','i get up','i walk','i run','i speak','i talk'])) {
+    const death = facts.find((f) =>
+      /(you|character).*(dead|died)/.test(norm(typeof f === 'string' ? f : f.text || ''))
+    );
+    if (death && hasAny(t, ['i stand up', 'i get up', 'i walk', 'i run', 'i speak', 'i talk'])) {
       reasons.push({ code: 'temporal', msg: 'prior death vs present action' });
     }
   } catch {}
@@ -74,4 +83,3 @@ export async function llmCritique({ ctx, userText } = {}) {
   // Stub: intentionally returns no reasons. Hook up to your micro-LLM if desired.
   return { reasons: [] };
 }
-

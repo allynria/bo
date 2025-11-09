@@ -15,7 +15,7 @@ test('Admin phrase inspector returns snapshot', async () => {
     URGA_PROVIDER: 'stub-urga',
     ADMIN_TOKEN: 'admintest',
     CONV_AUTH: 'test-token',
-    CORS_ALLOWLIST: 'http://ok.test'
+    CORS_ALLOWLIST: 'http://ok.test',
   };
   const child = spawn(process.execPath, [script], { env });
   const base = `http://127.0.0.1:${port}`;
@@ -24,18 +24,30 @@ test('Admin phrase inspector returns snapshot', async () => {
     const convId = 'PHRASE-INSPECT-1';
     // Prime the store via conv message (requires conv auth in production)
     await fetch(`${base}/v1/conv/message`, {
-      method:'POST',
-      headers: { 'content-type':'application/json', origin:'http://ok.test', authorization:'Bearer test-token' },
-      body: JSON.stringify({ conv_id: convId, engine:'urga', text:'She smiles softly. You notice her gaze.' })
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'http://ok.test',
+        authorization: 'Bearer test-token',
+      },
+      body: JSON.stringify({
+        conv_id: convId,
+        engine: 'urga',
+        text: 'She smiles softly. You notice her gaze.',
+      }),
     });
-    const r = await fetch(`${base}/admin/conv/${encodeURIComponent(convId)}/phrases?token=admintest`);
+    const r = await fetch(
+      `${base}/admin/conv/${encodeURIComponent(convId)}/phrases?token=admintest`
+    );
     assert.equal(r.status, 200);
     const j = await r.json();
     assert.equal(j.ok, true);
     assert.equal(j.conv_id, convId);
     assert.ok(typeof j.snapshot === 'object');
   } finally {
-    try { child.kill('SIGINT'); } catch {}
+    try {
+      child.kill('SIGINT');
+    } catch {}
     await new Promise((r) => child.on('exit', r));
   }
 });

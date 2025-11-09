@@ -78,4 +78,3 @@ export function assembleForModel(messages, opts = {}) {
   const bytes = assemblePromptBytes(messages, opts);
   return { bytes, hash: hashBytes(bytes) };
 }
-

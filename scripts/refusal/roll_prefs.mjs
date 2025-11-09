@@ -7,11 +7,11 @@
 // - getRollHint(style) — simple preview string for UI/tests
 
 const DEFAULT_STYLE = String(
-  process.env.FAIL_ROLLS_DEFAULT_STYLE
-  || process.env.FAIL_ROLLS_STYLE
-  || process.env.FAILROLL_DEFAULT_STYLE
-  || process.env.FAILROLL_STYLE
-  || 'neutral'
+  process.env.FAIL_ROLLS_DEFAULT_STYLE ||
+    process.env.FAIL_ROLLS_STYLE ||
+    process.env.FAILROLL_DEFAULT_STYLE ||
+    process.env.FAILROLL_STYLE ||
+    'neutral'
 ).toLowerCase();
 
 const allowed = new Set(['neutral', 'terse', 'poetic']);
@@ -59,9 +59,10 @@ export function getRollHint(style) {
   const pct = 45;
   const success = true;
   if (s === 'terse') return `(${action}: ${pct}% — ${success ? 'success' : 'failed'}.)`;
-  if (s === 'poetic') return success
-    ? `(Fortune leans their way—${action} (${pct}%) succeeds.)`
-    : `(Fortune turns her face—${action} (${pct}%) fails.)`;
+  if (s === 'poetic')
+    return success
+      ? `(Fortune leans their way—${action} (${pct}%) succeeds.)`
+      : `(Fortune turns her face—${action} (${pct}%) fails.)`;
   // neutral
   return success
     ? `(Attempt: ${action} — chance ${pct}%. Outcome: success.)`

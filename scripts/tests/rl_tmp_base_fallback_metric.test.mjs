@@ -29,7 +29,11 @@ test('TMP base fallback metrics emitted when TMP envs are missing', async () => 
 
   const resolved = captured.find((e) => e.event === 'rl_tmp_base_resolved_total.count');
   assert.ok(resolved, 'rl_tmp_base_resolved_total.count should be emitted');
-  assert.equal(String(resolved.labels?.source), 'cwd', 'source label should be cwd when no TMP envs');
+  assert.equal(
+    String(resolved.labels?.source),
+    'cwd',
+    'source label should be cwd when no TMP envs'
+  );
 
   const fallback = captured.find((e) => e.event === 'rl_tmp_base_fallback_total.count');
   assert.ok(fallback, 'rl_tmp_base_fallback_total.count should be emitted for non-TMPDIR');
@@ -44,9 +48,12 @@ test('TMP base fallback metrics emitted when TMP envs are missing', async () => 
   } catch {}
 
   // Restore env
-  if (orig.TMPDIR != null) process.env.TMPDIR = orig.TMPDIR; else delete process.env.TMPDIR;
-  if (orig.TEMP != null) process.env.TEMP = orig.TEMP; else delete process.env.TEMP;
-  if (orig.TMP != null) process.env.TMP = orig.TMP; else delete process.env.TMP;
+  if (orig.TMPDIR != null) process.env.TMPDIR = orig.TMPDIR;
+  else delete process.env.TMPDIR;
+  if (orig.TEMP != null) process.env.TEMP = orig.TEMP;
+  else delete process.env.TEMP;
+  if (orig.TMP != null) process.env.TMP = orig.TMP;
+  else delete process.env.TMP;
 });
 
 test('TMP base metrics label TEMP when TEMP is set', async () => {
@@ -95,11 +102,15 @@ test('TMP base metrics label TEMP when TEMP is set', async () => {
     await fsp.rm(path.join(tmpBase, 'urga_rl'), { recursive: true, force: true });
   } catch {}
 
-  try { await fsp.rm(tmpBase, { recursive: true, force: true }); } catch {}
+  try {
+    await fsp.rm(tmpBase, { recursive: true, force: true });
+  } catch {}
 
   // Restore env
-  if (orig.TMPDIR != null) process.env.TMPDIR = orig.TMPDIR; else delete process.env.TMPDIR;
-  if (orig.TEMP != null) process.env.TEMP = orig.TEMP; else delete process.env.TEMP;
-  if (orig.TMP != null) process.env.TMP = orig.TMP; else delete process.env.TMP;
+  if (orig.TMPDIR != null) process.env.TMPDIR = orig.TMPDIR;
+  else delete process.env.TMPDIR;
+  if (orig.TEMP != null) process.env.TEMP = orig.TEMP;
+  else delete process.env.TEMP;
+  if (orig.TMP != null) process.env.TMP = orig.TMP;
+  else delete process.env.TMP;
 });
-

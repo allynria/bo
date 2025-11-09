@@ -8,7 +8,11 @@ const DEFAULT_WINDOW = Number(process.env.TENSION_WINDOW_TURNS || 5);
 const SMOOTH = Number(process.env.TENSION_SMOOTHING || 0.4); // [0..1]
 const ENABLED = !!Number(process.env.TENSION_ENABLED || 1);
 const WEIGHTS = (() => {
-  try { return JSON.parse(process.env.TENSION_WEIGHTS || '{}'); } catch { return {}; }
+  try {
+    return JSON.parse(process.env.TENSION_WEIGHTS || '{}');
+  } catch {
+    return {};
+  }
 })();
 
 const W = {
@@ -17,27 +21,74 @@ const W = {
   conflict: WEIGHTS.conflict ?? 1.0,
   negemo: WEIGHTS.negemo ?? 0.8,
   posemo: WEIGHTS.posemo ?? 0.6,
-  longRun: WEIGHTS.longRun ?? 0.6,        // longer line than recent median
-  shortRun: WEIGHTS.shortRun ?? 0.2,      // very short can also be punchy
-  pause: WEIGHTS.pause ?? 0.7,            // long gap since last user msg
+  longRun: WEIGHTS.longRun ?? 0.6, // longer line than recent median
+  shortRun: WEIGHTS.shortRun ?? 0.2, // very short can also be punchy
+  pause: WEIGHTS.pause ?? 0.7, // long gap since last user msg
 };
 
 const CONFLICT_WORDS = new Set([
-  'argue','fight','shout','scream','threaten','attack','bleed','break','slam','ruin','kill','die',
-  'betray','panic','fear','hurt','hit','stab','gun','blood','choke','burn','drown','wound'
+  'argue',
+  'fight',
+  'shout',
+  'scream',
+  'threaten',
+  'attack',
+  'bleed',
+  'break',
+  'slam',
+  'ruin',
+  'kill',
+  'die',
+  'betray',
+  'panic',
+  'fear',
+  'hurt',
+  'hit',
+  'stab',
+  'gun',
+  'blood',
+  'choke',
+  'burn',
+  'drown',
+  'wound',
 ]);
-const NEG = new Set(['no','not','never','can’t','wont','won’t','stop','don’t','without','afraid','alone']);
-const POS = new Set(['love','promise','safe','warm','gentle','hope','trust','together','okay','calm']);
+const NEG = new Set([
+  'no',
+  'not',
+  'never',
+  'can’t',
+  'wont',
+  'won’t',
+  'stop',
+  'don’t',
+  'without',
+  'afraid',
+  'alone',
+]);
+const POS = new Set([
+  'love',
+  'promise',
+  'safe',
+  'warm',
+  'gentle',
+  'hope',
+  'trust',
+  'together',
+  'okay',
+  'calm',
+]);
 
-const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
-const clamp10 = x => x < 0 ? 0 : x > 10 ? 10 : x;
+const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const clamp10 = (x) => (x < 0 ? 0 : x > 10 ? 10 : x);
 
 function features(text, dtMs, lenMedian) {
   const t = (text || '').toLowerCase();
   const exclaim = (t.match(/!/g) || []).length;
   const question = (t.match(/\?/g) || []).length;
   // rough word lists (cheap):
-  let conflict = 0, negemo = 0, posemo = 0;
+  let conflict = 0,
+    negemo = 0,
+    posemo = 0;
   for (const w of t.split(/\W+/)) {
     if (!w) continue;
     if (CONFLICT_WORDS.has(w)) conflict++;
@@ -78,14 +129,19 @@ function beatFrom(prev, curr) {
 
 const state = new Map(); // convId -> { turns: [], lastUserTs, lenWindow: [], smoothed, last }
 
-export function tensionEnabled() { return ENABLED; }
+export function tensionEnabled() {
+  return ENABLED;
+}
 
 export function updateTension(convId, userText, nowMs = Date.now()) {
   if (!ENABLED) return { tension: 0, beat: 'lull', raw: 0 };
   let st = state.get(convId);
-  if (!st) { st = { turns: [], lastUserTs: 0, lenWindow: [], smoothed: 0, last: 0 }; state.set(convId, st); }
+  if (!st) {
+    st = { turns: [], lastUserTs: 0, lenWindow: [], smoothed: 0, last: 0 };
+    state.set(convId, st);
+  }
 
-  const dtMs = st.lastUserTs ? (nowMs - st.lastUserTs) : 0;
+  const dtMs = st.lastUserTs ? nowMs - st.lastUserTs : 0;
   const lenMedian = median(st.lenWindow);
   const f = features(userText, dtMs, lenMedian);
   const raw = scoreFrom(f);
@@ -107,15 +163,18 @@ export function updateTension(convId, userText, nowMs = Date.now()) {
 export function getTensionSnapshot(convId) {
   const st = state.get(convId);
   if (!st) return { tension: 0, beat: 'lull', turns: [] };
-  return { tension: st.smoothed || 0, beat: st.turns.at(-1)?.beat || 'lull', turns: st.turns.slice(-DEFAULT_WINDOW) };
+  return {
+    tension: st.smoothed || 0,
+    beat: st.turns.at(-1)?.beat || 'lull',
+    turns: st.turns.slice(-DEFAULT_WINDOW),
+  };
 }
 
 function median(a) {
   if (!a || !a.length) return 0;
-  const s = [...a].sort((x,y)=>x-y);
-  const m = Math.floor(s.length/2);
-  return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+  const s = [...a].sort((x, y) => x - y);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
 export default { tensionEnabled, updateTension, getTensionSnapshot };
-

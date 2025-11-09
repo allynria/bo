@@ -15,18 +15,34 @@ const BOOSTERS = new Map(); // convId -> [{ id, anchor, range:[lo,hi], text, tur
 
 function ensure(convId) {
   let v = BOOSTERS.get(convId);
-  if (!v) { v = []; BOOSTERS.set(convId, v); }
+  if (!v) {
+    v = [];
+    BOOSTERS.set(convId, v);
+  }
   return v;
 }
 
 export function listBoosters(convId) {
-  return ensure(convId).map(({ id, anchor, range, turnsLeft, ts, agent=null, source=null }) => ({ id, anchor, range, turnsLeft, ts, agent, source }));
+  return ensure(convId).map(
+    ({ id, anchor, range, turnsLeft, ts, agent = null, source = null }) => ({
+      id,
+      anchor,
+      range,
+      turnsLeft,
+      ts,
+      agent,
+      source,
+    })
+  );
 }
 
 export function deleteBooster(convId, id) {
   const arr = ensure(convId);
-  const i = arr.findIndex(b => String(b.id) === String(id));
-  if (i >= 0) { arr.splice(i,1); return true; }
+  const i = arr.findIndex((b) => String(b.id) === String(id));
+  if (i >= 0) {
+    arr.splice(i, 1);
+    return true;
+  }
   return false;
 }
 
@@ -34,7 +50,9 @@ export function consumeOne(convId, { agent = null } = {}) {
   const arr = ensure(convId);
   if (!arr.length) return null;
   // Find first eligible: if booster has an agent, it must match; otherwise allow any
-  const idx = arr.findIndex((b) => b && b.turnsLeft > 0 && (!b.agent || !agent || String(b.agent) === String(agent)));
+  const idx = arr.findIndex(
+    (b) => b && b.turnsLeft > 0 && (!b.agent || !agent || String(b.agent) === String(agent))
+  );
   if (idx < 0) return null;
   const b = arr[idx];
   b.turnsLeft -= 1;
@@ -42,12 +60,30 @@ export function consumeOne(convId, { agent = null } = {}) {
   return b.text;
 }
 
-export function stageBooster({ convId, id, anchor, range, text, ttlTurns, agent = null, source = 'heur' }) {
+export function stageBooster({
+  convId,
+  id,
+  anchor,
+  range,
+  text,
+  ttlTurns,
+  agent = null,
+  source = 'heur',
+}) {
   const arr = ensure(convId);
   const maxSlots = Number(process.env.BOOSTER_MAX_SLOTS || 5);
   // Evict oldest if needed
   while (arr.length >= maxSlots) arr.shift();
-  arr.push({ id: String(id), anchor: Number(anchor), range, text: String(text), turnsLeft: Math.max(1, Number(ttlTurns)||1), ts: Date.now(), agent: agent ? String(agent) : null, source: String(source || 'heur') });
+  arr.push({
+    id: String(id),
+    anchor: Number(anchor),
+    range,
+    text: String(text),
+    turnsLeft: Math.max(1, Number(ttlTurns) || 1),
+    ts: Date.now(),
+    agent: agent ? String(agent) : null,
+    source: String(source || 'heur'),
+  });
 }
 
 export function boostersSize(convId) {
@@ -58,7 +94,14 @@ export function makeBoosterId(anchor) {
   return `anchor:${anchor}`;
 }
 
-export function summarizeWindow({ convId, anchor, before=20, after=20, pov='she', maxChars = Number(process.env.BOOSTER_MAX_CHARS || 900) }) {
+export function summarizeWindow({
+  convId,
+  anchor,
+  before = 20,
+  after = 20,
+  pov = 'she',
+  maxChars = Number(process.env.BOOSTER_MAX_CHARS || 900),
+}) {
   const msgs = getWindowAround(convId, anchor, before, after);
   // Heuristic: keep role labels, compress content, keep salient cues.
   // We avoid LLM calls here to keep it cheap/fast; if you prefer, wire an LLM summarizer later.
@@ -72,7 +115,7 @@ export function summarizeWindow({ convId, anchor, before=20, after=20, pov='she'
     lines.push(`${m.role === 'user' ? 'You' : 'They'}: ${cap}`);
   }
   // Simple compression: prefer last 12 lines + first 4 as context
-  const head = lines.slice(0,4);
+  const head = lines.slice(0, 4);
   const tail = lines.slice(-12);
   let body = [...head, '—', ...tail].join(' ');
   body = body.replace(/\s+/g, ' ').trim();
@@ -87,6 +130,8 @@ function firstSentenceOr(s, n) {
   const m = String(s).match(/(.+?[.!?])(\s|$)/);
   if (m && m[1]) return m[1].trim();
   s = String(s);
-  return s.length <= n ? s : s.slice(0, n-1).trimEnd() + '…';
+  return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + '…';
 }
-function capitalize(s) { return s ? s[0].toUpperCase()+s.slice(1) : s; }
+function capitalize(s) {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}

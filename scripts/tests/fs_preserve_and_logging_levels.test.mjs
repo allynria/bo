@@ -19,7 +19,9 @@ test('writeFileAtomic: preserves existing file mode when supported', async () =>
   const dir = tmpdir('preserve-mode');
   const p = path.join(dir, 'f.txt');
   await fsp.writeFile(p, 'orig', 'utf8');
-  try { await fsp.chmod(p, 0o640); } catch {}
+  try {
+    await fsp.chmod(p, 0o640);
+  } catch {}
   const before = await fsp.stat(p);
   const supportsPosixModes = (before.mode & 0o777) === 0o640;
 
@@ -49,14 +51,20 @@ async function runProbe(level) {
   return await new Promise((resolve, reject) => {
     const cp = spawn(process.execPath, ['scripts/tests/helpers/log_probe.mjs'], {
       env: { ...process.env, LOG_LEVEL: level },
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     let out = '';
-    cp.stdout.on('data', (d) => { out += d; });
+    cp.stdout.on('data', (d) => {
+      out += d;
+    });
     cp.on('error', reject);
     cp.on('exit', (code) => {
       if (code !== 0) return reject(new Error(`probe exited ${code}`));
-      try { resolve(JSON.parse(out.trim())); } catch (e) { reject(e); }
+      try {
+        resolve(JSON.parse(out.trim()));
+      } catch (e) {
+        reject(e);
+      }
     });
   });
 }
@@ -92,4 +100,3 @@ test('logAt gating: ERROR emits only error', async () => {
   assert.equal(res.warn, 0);
   assert.equal(res.error > 0, true);
 });
-

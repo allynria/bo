@@ -8,7 +8,7 @@ const STYLE_BOOSTER_ENABLED = String(process.env.STYLE_BOOSTER_ENABLED || '1') =
 function toReadable(tokens = []) {
   // Turn ["STYLE:noir","CADENCE:staccato","TONE:world-weary","IMAGERY:shadow,neon,rain"]
   // into a terse human hint.
-  const kv = tokens.map(t => {
+  const kv = tokens.map((t) => {
     const [k, v] = t.split(':', 2);
     return [k?.toLowerCase(), v?.toLowerCase()];
   });
@@ -49,4 +49,3 @@ export function buildStyleBooster(ctx) {
 }
 
 export default { buildStyleBooster };
-

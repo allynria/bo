@@ -2,9 +2,15 @@ import { createSharedRateLimiter, createInMemoryRateLimitBackend } from '../../.
 
 const windowMs = 200;
 const limit = 7;
-const rl = createSharedRateLimiter({ windowMs, limit, backend: createInMemoryRateLimitBackend({}) });
+const rl = createSharedRateLimiter({
+  windowMs,
+  limit,
+  backend: createInMemoryRateLimitBackend({}),
+});
 
-function alignAnchor(now) { return Math.floor(now / windowMs) * windowMs; }
+function alignAnchor(now) {
+  return Math.floor(now / windowMs) * windowMs;
+}
 
 async function run() {
   const baseNow = Date.now();
@@ -23,10 +29,22 @@ async function run() {
     Date.now = () => fakeNow;
     const be = rl; // not directly accessible; re-import backend via new limiter
     // Instead, dump observed outcome only
-    console.log(JSON.stringify({ c, fakeNow, skew, offset, ok: !!r.ok, internal_error: !!r.internal_error, rate_limited: !!r.rate_limited }));
+    console.log(
+      JSON.stringify({
+        c,
+        fakeNow,
+        skew,
+        offset,
+        ok: !!r.ok,
+        internal_error: !!r.internal_error,
+        rate_limited: !!r.rate_limited,
+      })
+    );
     Date.now = realNow;
   }
 }
 
-run().catch(e => { console.error('dbg_error', e && e.stack || e); process.exitCode = 1; });
-
+run().catch((e) => {
+  console.error('dbg_error', (e && e.stack) || e);
+  process.exitCode = 1;
+});

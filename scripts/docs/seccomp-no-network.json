@@ -33,4 +33,3 @@
     { "name": "recvmsg", "action": "SCMP_ACT_ERRNO" }
   ]
 }
-

@@ -7,5 +7,50 @@
     "stream_duration_min_pct_under": 90,
     "stream_requests": 24,
     "concurrency": 4
+  },
+  "hydra": {
+    "first_token_threshold_ms": 300,
+    "first_token_min_pct_under": 90,
+    "first_token_requests": 40,
+    "stream_duration_threshold_ms": 5000,
+    "stream_duration_min_pct_under": 90,
+    "stream_requests": 24,
+    "concurrency": 4
+  },
+  "orca": {
+    "first_token_threshold_ms": 300,
+    "first_token_min_pct_under": 90,
+    "first_token_requests": 40,
+    "stream_duration_threshold_ms": 5000,
+    "stream_duration_min_pct_under": 90,
+    "stream_requests": 24,
+    "concurrency": 4
+  },
+  "dione": {
+    "first_token_threshold_ms": 300,
+    "first_token_min_pct_under": 90,
+    "first_token_requests": 40,
+    "stream_duration_threshold_ms": 5000,
+    "stream_duration_min_pct_under": 90,
+    "stream_requests": 24,
+    "concurrency": 4
+  },
+  "echo": {
+    "first_token_threshold_ms": 300,
+    "first_token_min_pct_under": 90,
+    "first_token_requests": 40,
+    "stream_duration_threshold_ms": 5000,
+    "stream_duration_min_pct_under": 90,
+    "stream_requests": 24,
+    "concurrency": 4
+  },
+  "dreams": {
+    "first_token_threshold_ms": 300,
+    "first_token_min_pct_under": 90,
+    "first_token_requests": 40,
+    "stream_duration_threshold_ms": 5000,
+    "stream_duration_min_pct_under": 90,
+    "stream_requests": 24,
+    "concurrency": 4
   }
 }

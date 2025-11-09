@@ -1,0 +1,13 @@
+# Generated or external content
+node_modules/
+coverage/
+dist/
+build/
+sdk/js/
+sdk/types/
+**/*.d.ts
+*.log
+
+# Large fixtures or snapshots
+Heap.*.heapsnapshot
+tmp/

@@ -32,7 +32,8 @@ export function indexTurn({ convId, role, text, ts = Date.now() }) {
   const clean = SafeText.stripDangerous(base);
   const cap = Math.max(100, Math.min(20000, Number(process.env.TRANSCRIPT_MAX_TEXT_CHARS || 4000)));
   const txt = SafeText.clamp(clean, cap);
-  if (txt.length < base.length) sampled('debug', 0.02, '[transcript] turn text truncated/sanitized');
+  if (txt.length < base.length)
+    sampled('debug', 0.02, '[transcript] turn text truncated/sanitized');
   const rec = { seq: t.seq, role: role || 'unknown', text: txt, ts: Number(ts) };
   t.list.push(rec);
   if (t.list.length > max) {
@@ -46,9 +47,9 @@ export function getWindowAround(convId, anchorSeq, before = 20, after = 20) {
   const t = ensure(convId);
   const a = Number(anchorSeq);
   if (!Number.isFinite(a) || a <= 0) return [];
-  const lo = Math.max(1, a - Math.max(0, Number(before)||0));
-  const hi = a + Math.max(0, Number(after)||0);
-  return t.list.filter(m => m.seq >= lo && m.seq <= hi);
+  const lo = Math.max(1, a - Math.max(0, Number(before) || 0));
+  const hi = a + Math.max(0, Number(after) || 0);
+  return t.list.filter((m) => m.seq >= lo && m.seq <= hi);
 }
 
 export function getSize(convId) {

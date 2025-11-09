@@ -20,8 +20,12 @@ function runNode(script, env = {}) {
     const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
     let out = '';
     let err = '';
-    child.stdout.on('data', (d) => { out += d.toString(); });
-    child.stderr.on('data', (d) => { err += d.toString(); });
+    child.stdout.on('data', (d) => {
+      out += d.toString();
+    });
+    child.stderr.on('data', (d) => {
+      err += d.toString();
+    });
     child.on('exit', (code) => resolve({ code, out, err }));
     child.on('error', reject);
   });
@@ -46,7 +50,7 @@ test('Disk-pressure drill triggers fatal FS handling and circuit open', async ()
     URGA_TEST_FS_ERROR_CODE: 'ENOSPC',
     URGA_TEST_FS_ERROR_PATH_RX: 'enospc',
     EXIT_ON_FATAL_FS: '1',
-    CIRCUIT_ERROR_THRESHOLD: '1'
+    CIRCUIT_ERROR_THRESHOLD: '1',
   };
   const r = await runNode(probe, { NODE_ENV: 'test', ...env });
   const j = JSON.parse(r.out || '{}');
@@ -58,14 +62,22 @@ test('Disk-pressure drill triggers fatal FS handling and circuit open', async ()
 test('Kill-during-write leaves tmp artifacts and preserves original file', async () => {
   const target = path.join(process.cwd(), 'tmp.kill.write.json');
   const FS = await getAsyncFS();
-  try { await FS.writeFile(target, '"A"', 'utf8'); } catch {}
-  const probe = path.join(process.cwd(), 'scripts', 'tests', 'helpers', 'kill_during_write_probe.mjs');
+  try {
+    await FS.writeFile(target, '"A"', 'utf8');
+  } catch {}
+  const probe = path.join(
+    process.cwd(),
+    'scripts',
+    'tests',
+    'helpers',
+    'kill_during_write_probe.mjs'
+  );
   const env = { TARGET: target, URGA_TEST_DELAY_BEFORE_RENAME_MS: '200', KILL_MS: '50' };
   const r = await runNode(probe, { NODE_ENV: 'test', ...env });
   const raw = await FS.readFile(target, 'utf8');
   assert.equal(String(raw).trim(), '"A"');
   const dir = path.dirname(target);
-  const files = fs.readdirSync(dir).filter(f => f.includes(path.basename(target) + '.tmp-'));
+  const files = fs.readdirSync(dir).filter((f) => f.includes(path.basename(target) + '.tmp-'));
   assert.ok(files.length > 0);
 });
 import { test } from 'node:test';

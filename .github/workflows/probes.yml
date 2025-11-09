@@ -2,7 +2,7 @@ name: Probes CI
 
 on:
   pull_request:
-    branches: ["*"]
+    branches: ['*']
 
 jobs:
   run-probes:
@@ -18,4 +18,3 @@ jobs:
         run: npm ci
       - name: Run probes aggregator
         run: npm run probes:ci
-

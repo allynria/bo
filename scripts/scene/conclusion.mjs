@@ -8,7 +8,7 @@
 
 const _S = new Map(); // convId -> state
 
-const envBool = (k, d) => ((process.env[k] ?? (d ? '1' : '0')) === '1');
+const envBool = (k, d) => (process.env[k] ?? (d ? '1' : '0')) === '1';
 const envNum = (k, d) => {
   const v = Number(process.env[k]);
   return Number.isFinite(v) ? v : d;
@@ -44,7 +44,7 @@ function get(convId) {
       coolUntilTurn: -1,
       lastReason: '',
       lastStyle: CONCLUDE_STYLE,
-      lastScore: 0
+      lastScore: 0,
     });
   }
   return _S.get(convId);
@@ -59,11 +59,14 @@ export function updateStats(convId, { entropy, deltaSim, embedSim, newEntitiesDe
 
   // Heuristics
   const LOW_ENTROPY = entropy != null && entropy < (Number(process.env.LOOP_ENTROPY_MIN) || 2.1);
-  const HIGH_SIM = (deltaSim ?? 0) > (Number(process.env.LOOP_DELTA_SIM_THRESHOLD) || 0.68)
-                || (embedSim ?? 0) > (Number(process.env.LOOP_EMBED_SIM_MAX) || 0.91);
+  const HIGH_SIM =
+    (deltaSim ?? 0) > (Number(process.env.LOOP_DELTA_SIM_THRESHOLD) || 0.68) ||
+    (embedSim ?? 0) > (Number(process.env.LOOP_EMBED_SIM_MAX) || 0.91);
 
-  if (LOW_ENTROPY) s.lowEntropyStreak++; else s.lowEntropyStreak = 0;
-  if (HIGH_SIM) s.highSimStreak++; else s.highSimStreak = 0;
+  if (LOW_ENTROPY) s.lowEntropyStreak++;
+  else s.lowEntropyStreak = 0;
+  if (HIGH_SIM) s.highSimStreak++;
+  else s.highSimStreak = 0;
 
   if (newEntitiesDetected) {
     s.lastNewEntitiesTs = Date.now();
@@ -90,19 +93,15 @@ export function maybeStageConclusion(convId, { now = Date.now(), style } = {}) {
   const s = get(convId);
   if (!CONCLUDE_ENABLED) return { staged: false, reason: 'disabled' };
   if (s.turn < CONCLUDE_MIN_TURNS) return { staged: false, reason: 'warmup' };
-  if ((now - s.lastSceneStart) < CONCLUDE_MIN_TIME_MS) return { staged: false, reason: 'too_soon' };
+  if (now - s.lastSceneStart < CONCLUDE_MIN_TIME_MS) return { staged: false, reason: 'too_soon' };
   if (s.turn <= s.coolUntilTurn) return { staged: false, reason: 'cooldown' };
 
   const lowEntropyOK = s.lowEntropyStreak >= CONCLUDE_LOW_ENTROPY_TURNS;
   const highSimOK = s.highSimStreak >= CONCLUDE_HIGH_SIM_TURNS;
   const noNewEntOK = s.noNewEntityStreak >= CONCLUDE_NO_NEW_ENT_TURNS;
 
-  const signals = [
-    lowEntropyOK ? 1 : 0,
-    highSimOK ? 1 : 0,
-    noNewEntOK ? 1 : 0
-  ];
-  const score = signals.reduce((a,b)=>a+b,0);
+  const signals = [lowEntropyOK ? 1 : 0, highSimOK ? 1 : 0, noNewEntOK ? 1 : 0];
+  const score = signals.reduce((a, b) => a + b, 0);
   if (score < 2) return { staged: false, reason: 'weak_signals', score };
 
   const chosenStyle = style || CONCLUDE_STYLE;
@@ -119,7 +118,7 @@ export function maybeStageConclusion(convId, { now = Date.now(), style } = {}) {
     score,
     style: chosenStyle,
     booster,
-    coolUntilTurn: s.coolUntilTurn
+    coolUntilTurn: s.coolUntilTurn,
   };
 }
 
@@ -141,7 +140,7 @@ export function snapshot(convId) {
     lastReason: s.lastReason,
     lastStyle: s.lastStyle,
     lastScore: s.lastScore,
-    enabled: CONCLUDE_ENABLED
+    enabled: CONCLUDE_ENABLED,
   };
 }
 
@@ -160,7 +159,7 @@ export function force(convId, style) {
     score: 3,
     style: chosenStyle,
     booster,
-    coolUntilTurn: s.coolUntilTurn
+    coolUntilTurn: s.coolUntilTurn,
   };
 }
 

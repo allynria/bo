@@ -9,27 +9,47 @@ function startService(env = {}) {
   const script = path.join(process.cwd(), 'scripts', 'service.js');
   const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
   let logs = '';
-  child.stdout.on('data', (d) => { logs += d.toString(); });
-  child.stderr.on('data', (d) => { logs += d.toString(); });
+  child.stdout.on('data', (d) => {
+    logs += d.toString();
+  });
+  child.stderr.on('data', (d) => {
+    logs += d.toString();
+  });
   return { child, getLogs: () => logs };
 }
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let data = '';
-      res.on('data', (d) => { data += d.toString(); });
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, headers: res.headers, json: JSON.parse(data || '{}') }); }
-        catch (e) { reject(e); }
-      });
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (d) => {
+          data += d.toString();
+        });
+        res.on('end', () => {
+          try {
+            resolve({
+              status: res.statusCode,
+              headers: res.headers,
+              json: JSON.parse(data || '{}'),
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
 test('Prod JSON-only gate: non_json_log_total must equal 0', async () => {
   const port = 3350 + Math.floor(Math.random() * 100);
-  const { child, getLogs } = startService({ NODE_ENV: 'production', LOG_JSON: '1', PORT: String(port), QUEUE_MAX: '0' });
+  const { child, getLogs } = startService({
+    NODE_ENV: 'production',
+    LOG_JSON: '1',
+    PORT: String(port),
+    QUEUE_MAX: '0',
+  });
   const base = `http://localhost:${port}`;
   await waitForUp(base, { timeout: 3000 });
 
@@ -45,6 +65,8 @@ test('Prod JSON-only gate: non_json_log_total must equal 0', async () => {
   }
   assert.equal(Number(count || 0), 0, 'non_json_log_total must be zero in production');
 
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });

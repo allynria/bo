@@ -15,10 +15,14 @@ function fetchJson(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(url, { method: 'GET', headers }, (res) => {
       let body = '';
-      res.on('data', (c) => { body += c.toString(); });
+      res.on('data', (c) => {
+        body += c.toString();
+      });
       res.on('end', () => {
         let j = {};
-        try { j = JSON.parse(body); } catch {}
+        try {
+          j = JSON.parse(body);
+        } catch {}
         resolve({ status: res.statusCode, json: j });
       });
     });
@@ -32,7 +36,12 @@ function fetchJson(url, headers = {}) {
 test('heap snapshot endpoint requires admin auth and returns file', async () => {
   const port = 3900 + Math.floor(Math.random() * 500);
   const token = 'admintoken';
-  const child = startService({ NODE_ENV: 'production', LOG_JSON: '1', PORT: String(port), ADMIN_TOKEN: token });
+  const child = startService({
+    NODE_ENV: 'production',
+    LOG_JSON: '1',
+    PORT: String(port),
+    ADMIN_TOKEN: token,
+  });
   const base = `http://localhost:${port}`;
   await waitForUp(base, { timeout: 3000 });
 
@@ -44,6 +53,8 @@ test('heap snapshot endpoint requires admin auth and returns file', async () => 
   assert.equal(typeof yesAuth.json.file, 'string');
   assert.ok((yesAuth.json.file || '').length > 0);
 
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });

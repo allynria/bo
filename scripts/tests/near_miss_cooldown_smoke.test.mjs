@@ -28,9 +28,9 @@ function start() {
       COMPLICATION_BAND: '20',
       NEARMISS_PHRASE_COOLDOWN_ENABLED: '1',
       NEARMISS_PHRASE_COOLDOWN_MS: '60000',
-      NEARMISS_PHRASE_COOLDOWN_PICK: '2'
+      NEARMISS_PHRASE_COOLDOWN_PICK: '2',
     },
-    stdio: 'ignore'
+    stdio: 'ignore',
   });
 }
 
@@ -38,10 +38,15 @@ function waitForUp(url, { timeout = 3000 } = {}) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const tick = () => {
-      http.get(url, res => { res.resume(); resolve(); }).on('error', () => {
-        if (Date.now() - start > timeout) return reject(new Error('service not up'));
-        setTimeout(tick, 50);
-      });
+      http
+        .get(url, (res) => {
+          res.resume();
+          resolve();
+        })
+        .on('error', () => {
+          if (Date.now() - start > timeout) return reject(new Error('service not up'));
+          setTimeout(tick, 50);
+        });
     };
     tick();
   });
@@ -49,31 +54,50 @@ function waitForUp(url, { timeout = 3000 } = {}) {
 
 function sse(path) {
   return new Promise((resolve, reject) => {
-    const req = http.get(`http://localhost:3822${path}`, { headers: { accept: 'text/event-stream', authorization: 'Bearer test-token', 'cache-control': 'no-cache', connection: 'keep-alive' } }, res => {
-      let buf = '';
-      const chunksAgg = [];
-      let resolved = false;
-      res.on('data', c => {
-        buf += c.toString('utf8');
-        const chunks = buf.split(/\r?\n\r?\n/);
-        buf = chunks.pop();
-        for (const chunk of chunks) {
-          chunksAgg.push(chunk);
-          const evtLine = chunk.split(/\r?\n/).find(l => l.startsWith('event:')) || '';
-          const evt = evtLine.replace(/^event:\s*/, '').trim();
-          if (!resolved && evt === 'end') {
-            resolved = true;
-            const full = chunksAgg.concat(buf ? [buf] : []).join('\n\n');
-            resolve(full);
-            return;
+    const req = http.get(
+      `http://localhost:3822${path}`,
+      {
+        headers: {
+          accept: 'text/event-stream',
+          authorization: 'Bearer test-token',
+          'cache-control': 'no-cache',
+          connection: 'keep-alive',
+        },
+      },
+      (res) => {
+        let buf = '';
+        const chunksAgg = [];
+        let resolved = false;
+        res.on('data', (c) => {
+          buf += c.toString('utf8');
+          const chunks = buf.split(/\r?\n\r?\n/);
+          buf = chunks.pop();
+          for (const chunk of chunks) {
+            chunksAgg.push(chunk);
+            const evtLine = chunk.split(/\r?\n/).find((l) => l.startsWith('event:')) || '';
+            const evt = evtLine.replace(/^event:\s*/, '').trim();
+            if (!resolved && evt === 'end') {
+              resolved = true;
+              const full = chunksAgg.concat(buf ? [buf] : []).join('\n\n');
+              resolve(full);
+              return;
+            }
           }
-        }
-      });
-      res.on('end', () => { if (!resolved) resolve(chunksAgg.concat(buf ? [buf] : []).join('\n\n')); });
-      res.on('error', (e) => { if (!resolved) reject(e); });
-      setTimeout(() => { if (!resolved) resolve(chunksAgg.concat(buf ? [buf] : []).join('\n\n')); }, 4000);
+        });
+        res.on('end', () => {
+          if (!resolved) resolve(chunksAgg.concat(buf ? [buf] : []).join('\n\n'));
+        });
+        res.on('error', (e) => {
+          if (!resolved) reject(e);
+        });
+        setTimeout(() => {
+          if (!resolved) resolve(chunksAgg.concat(buf ? [buf] : []).join('\n\n'));
+        }, 4000);
+      }
+    );
+    req.on('error', (e) => {
+      reject(e);
     });
-    req.on('error', (e) => { reject(e); });
   });
 }
 
@@ -88,20 +112,32 @@ function sse(path) {
   for (let i = 0; i < 200; i++) {
     const text = `(NM ${i}) I try to charm the warden`;
     const prev = await new Promise((resolve, reject) => {
-      http.get(`http://localhost:3822/admin/failroll/preview?token=adm&conv_id=${encodeURIComponent(conv)}&text=${encodeURIComponent(text)}&turn=0`, res => {
-        let d=''; res.on('data', c => d += c); res.on('end', () => resolve({ code: res.statusCode, body: d }));
-      }).on('error', reject);
+      http
+        .get(
+          `http://localhost:3822/admin/failroll/preview?token=adm&conv_id=${encodeURIComponent(conv)}&text=${encodeURIComponent(text)}&turn=0`,
+          (res) => {
+            let d = '';
+            res.on('data', (c) => (d += c));
+            res.on('end', () => resolve({ code: res.statusCode, body: d }));
+          }
+        )
+        .on('error', reject);
     });
     if (prev.code === 200) {
       try {
         const js = JSON.parse(prev.body);
-        if (js && js.nearMiss === true && js.fail === false) { candidate = text; break; }
+        if (js && js.nearMiss === true && js.fail === false) {
+          candidate = text;
+          break;
+        }
       } catch {}
     }
   }
   assert.ok(candidate, 'failed to locate near-miss via preview');
   const idem = `nmseed-${Date.now()}`;
-  const log = await sse(`/conv/stream?conv_id=${conv}&engine=urga&turn=0&idempotency_key=${encodeURIComponent(idem)}&agent=none&text=${encodeURIComponent(candidate)}&ts=${Date.now()}`);
+  const log = await sse(
+    `/conv/stream?conv_id=${conv}&engine=urga&turn=0&idempotency_key=${encodeURIComponent(idem)}&agent=none&text=${encodeURIComponent(candidate)}&ts=${Date.now()}`
+  );
   assert.ok(log.includes('event: loopguard.cooldown'), 'should emit cooldown event during stream');
 
   // Verify cooldown event payload fields and ordering
@@ -109,15 +145,19 @@ function sse(path) {
   const events = [];
   for (const chunk of chunks) {
     const lines = chunk.split(/\r?\n/);
-    const evtLine = lines.find(l => l.startsWith('event:')) || '';
-    const dataLine = lines.find(l => l.startsWith('data:')) || '';
+    const evtLine = lines.find((l) => l.startsWith('event:')) || '';
+    const dataLine = lines.find((l) => l.startsWith('data:')) || '';
     const evt = evtLine.replace(/^event:\s*/, '').trim();
     let payload = null;
-    try { payload = JSON.parse(dataLine.replace(/^data:\s*/, '').trim()); } catch {}
+    try {
+      payload = JSON.parse(dataLine.replace(/^data:\s*/, '').trim());
+    } catch {}
     if (evt) events.push({ evt, payload });
   }
-  const idxEnd = events.findIndex(e => e.evt === 'end');
-  const idxCool = events.findIndex(e => e.evt === 'loopguard.cooldown' && e.payload && Array.isArray(e.payload.phrases));
+  const idxEnd = events.findIndex((e) => e.evt === 'end');
+  const idxCool = events.findIndex(
+    (e) => e.evt === 'loopguard.cooldown' && e.payload && Array.isArray(e.payload.phrases)
+  );
   assert.ok(idxCool >= 0, 'should include cooldown synergy with phrases');
   assert.ok(idxEnd === -1 || idxCool < idxEnd, 'cooldown synergy should occur before end');
   const p = events[idxCool].payload;
@@ -127,19 +167,33 @@ function sse(path) {
   assert.ok(Number(p.ttl_ms) >= 1000, 'ttl_ms should be a positive number');
 
   // Optional: if cooldown.hit is present, validate conv_id field
-  const idxHit = events.findIndex(e => e.evt === 'loopguard.cooldown.hit');
+  const idxHit = events.findIndex((e) => e.evt === 'loopguard.cooldown.hit');
   if (idxHit >= 0) {
-    assert.equal(events[idxHit].payload.conv_id, conv, 'cooldown.hit conv_id should match conversation');
+    assert.equal(
+      events[idxHit].payload.conv_id,
+      conv,
+      'cooldown.hit conv_id should match conversation'
+    );
   }
 
   // call preview again to ensure endpoint still works (sanity)
   const prev = await new Promise((resolve, reject) => {
-    http.get('http://localhost:3822/admin/failroll/preview?token=adm&conv_id=nm-demo&text=I try to charm the warden&turn=1', res => {
-      let d=''; res.on('data', c => d += c); res.on('end', () => resolve({ code: res.statusCode, body: d }));
-    }).on('error', reject);
+    http
+      .get(
+        'http://localhost:3822/admin/failroll/preview?token=adm&conv_id=nm-demo&text=I try to charm the warden&turn=1',
+        (res) => {
+          let d = '';
+          res.on('data', (c) => (d += c));
+          res.on('end', () => resolve({ code: res.statusCode, body: d }));
+        }
+      )
+      .on('error', reject);
   });
   assert.equal(prev.code, 200);
 
   ps.kill('SIGINT');
   console.log('✓ near-miss cooldown synergy smoke test OK');
-})().catch(e => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -20,4 +20,3 @@ export function isCooled(convId, text) {
 }
 
 export default { coolPhrases, isCooled };
-

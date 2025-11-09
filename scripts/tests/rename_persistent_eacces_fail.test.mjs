@@ -8,12 +8,17 @@ test('Persistent EACCES on rename surfaces actionable error and emits metrics', 
   const captured = [];
   globalThis.UrgaCoreDeps = globalThis.UrgaCoreDeps || {};
   globalThis.UrgaCoreDeps.Metrics = {
-    count: (_ctx, name, delta = 1, labels = {}) => { captured.push({ event: `${name}.count`, delta, labels }); },
+    count: (_ctx, name, delta = 1, labels = {}) => {
+      captured.push({ event: `${name}.count`, delta, labels });
+    },
     gauge: () => {},
     histogramMs: () => {},
   };
 
-  const dir = path.join(os.tmpdir(), `rename_fail_${process.pid}_${Math.random().toString(36).slice(2)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `rename_fail_${process.pid}_${Math.random().toString(36).slice(2)}`
+  );
   await fsp.mkdir(dir, { recursive: true });
   const target = path.join(dir, 'target.json');
   await fsp.writeFile(target, 'seed', 'utf8');
@@ -42,6 +47,7 @@ test('Persistent EACCES on rename surfaces actionable error and emits metrics', 
   assert.equal(String(failed.labels?.code || '').toUpperCase(), 'EACCES');
 
   // Cleanup
-  try { await fsp.rm(dir, { recursive: true, force: true }); } catch {}
+  try {
+    await fsp.rm(dir, { recursive: true, force: true });
+  } catch {}
 });
-

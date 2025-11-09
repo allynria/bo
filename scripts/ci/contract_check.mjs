@@ -4,10 +4,14 @@ import { AsyncFS } from '../../monolith.js';
 
 async function generateClientString(spec) {
   const s = spec?.components?.schemas || {};
-  const msgReq = s.MessageRequest; const msgRes = s.MessageResponse;
-  const compReq = s.CompileRequest; const compRes = s.CompileResponse;
-  const replyMsg = s.ReplyMessage; const message = s.Message;
-  if (!msgReq || !msgRes || !compReq || !compRes) throw new Error('OpenAPI missing required schemas');
+  const msgReq = s.MessageRequest;
+  const msgRes = s.MessageResponse;
+  const compReq = s.CompileRequest;
+  const compRes = s.CompileResponse;
+  const replyMsg = s.ReplyMessage;
+  const message = s.Message;
+  if (!msgReq || !msgRes || !compReq || !compRes)
+    throw new Error('OpenAPI missing required schemas');
   const header = `// Generated from scripts/docs/openapi.json. Do not edit by hand.\n`;
   const code = `${header}
 import http from 'node:http';
@@ -22,11 +26,19 @@ const CompileRequest = ${JSON.stringify(compReq)};
 const CompileResponse = ${JSON.stringify(compRes)};
 
 // Add referenced component schemas when present
-${replyMsg ? `const ReplyMessage = ${JSON.stringify(replyMsg)};
+${
+  replyMsg
+    ? `const ReplyMessage = ${JSON.stringify(replyMsg)};
 ajv.addSchema(ReplyMessage, '#/components/schemas/ReplyMessage');
-` : ''}${message ? `const Message = ${JSON.stringify(message)};
+`
+    : ''
+}${
+    message
+      ? `const Message = ${JSON.stringify(message)};
 ajv.addSchema(Message, '#/components/schemas/Message');
-` : ''}
+`
+      : ''
+  }
 
 const validateMessageRequest = ajv.compile(MessageRequest);
 const validateMessageResponse = ajv.compile(MessageResponse);
@@ -194,10 +206,14 @@ async function main() {
     // Show a small diff snippet to aid debugging
     const minLen = Math.min(cur.length, exp.length);
     let i = 0;
-    for (; i < minLen; i++) { if (cur[i] !== exp[i]) break; }
+    for (; i < minLen; i++) {
+      if (cur[i] !== exp[i]) break;
+    }
     const curSnip = cur.slice(i, i + 160);
     const expSnip = exp.slice(i, i + 160);
-    process.stderr.write('SDK stubs are out of date with OpenAPI spec. Run: node scripts/sdk/generate_from_openapi.mjs\n');
+    process.stderr.write(
+      'SDK stubs are out of date with OpenAPI spec. Run: node scripts/sdk/generate_from_openapi.mjs\n'
+    );
     process.stderr.write(`Diff starts at index ${i}\n`);
     process.stderr.write(`Current: ${JSON.stringify(curSnip)}\n`);
     process.stderr.write(`Expected: ${JSON.stringify(expSnip)}\n`);
@@ -206,9 +222,18 @@ async function main() {
   }
   // Also run the versioned OpenAPI contract tests
   await new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--test', 'scripts/tests/openapi_contract_versioned.test.mjs'], { stdio: 'inherit' });
-    child.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`contract tests failed with code ${code}`)));
+    const child = spawn(
+      process.execPath,
+      ['--test', 'scripts/tests/openapi_contract_versioned.test.mjs'],
+      { stdio: 'inherit' }
+    );
+    child.on('exit', (code) =>
+      code === 0 ? resolve() : reject(new Error(`contract tests failed with code ${code}`))
+    );
   });
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

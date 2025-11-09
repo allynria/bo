@@ -14,7 +14,7 @@ const PRESETS = Object.freeze({
       'DICTION:hardboiled',
       'IMAGERY:shadow,neon,rain',
     ],
-    hint: 'Write like a neon-soaked detective tale—short, punchy sentences; gritty metaphors; keep it lean.'
+    hint: 'Write like a neon-soaked detective tale—short, punchy sentences; gritty metaphors; keep it lean.',
   },
   dreamy: {
     label: 'Dreamy',
@@ -25,7 +25,7 @@ const PRESETS = Object.freeze({
       'DICTION:soft',
       'IMAGERY:rain,breath,skin,light',
     ],
-    hint: 'A soft, cinematic flow; intimate sensory details; gentle metaphors; avoid harsh verbs.'
+    hint: 'A soft, cinematic flow; intimate sensory details; gentle metaphors; avoid harsh verbs.',
   },
   snappy: {
     label: 'Snappy',
@@ -36,7 +36,7 @@ const PRESETS = Object.freeze({
       'DICTION:plain',
       'STRUCTURE:dialogue-forward',
     ],
-    hint: 'Fast beats; cut filler; prefer dialogue and action; avoid long descriptions.'
+    hint: 'Fast beats; cut filler; prefer dialogue and action; avoid long descriptions.',
   },
   poetic: {
     label: 'Poetic',
@@ -46,17 +46,12 @@ const PRESETS = Object.freeze({
       'TONE:lyrical',
       'DEVICES:alliteration,internal-rhyme',
     ],
-    hint: 'Lyrical phrasing and subtle musicality; vivid images; keep coherence.'
+    hint: 'Lyrical phrasing and subtle musicality; vivid images; keep coherence.',
   },
   terse: {
     label: 'Terse',
-    tokens: [
-      'STYLE:terse',
-      'CADENCE:clipped',
-      'TONE:cool',
-      'ADJECTIVES:minimal',
-    ],
-    hint: 'Minimal adjectives. Short lines. Let subtext carry the scene.'
+    tokens: ['STYLE:terse', 'CADENCE:clipped', 'TONE:cool', 'ADJECTIVES:minimal'],
+    hint: 'Minimal adjectives. Short lines. Let subtext carry the scene.',
   },
 });
 
@@ -65,7 +60,10 @@ const store = new Map(); // convId -> { preset, overrides, updatedAt }
 export function listPresets() {
   // Public shape for UI
   return Object.entries(PRESETS).map(([key, v]) => ({
-    key, label: v.label, tokens: v.tokens, hint: v.hint
+    key,
+    label: v.label,
+    tokens: v.tokens,
+    hint: v.hint,
   }));
 }
 
@@ -107,6 +105,9 @@ export function getPresetHint(presetKey) {
 }
 
 export default {
-  listPresets, getStylePref, setStylePref, resolveStyleTokens, getPresetHint
+  listPresets,
+  getStylePref,
+  setStylePref,
+  resolveStyleTokens,
+  getPresetHint,
 };
-

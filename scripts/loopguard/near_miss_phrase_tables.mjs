@@ -14,16 +14,6 @@ export const NEARMISS_PHRASE_TABLE = {
     'voice drops to a hush',
     'you feel a subtle shift',
   ],
-  physical: [
-    'muscles tense',
-    'breath ragged',
-    'a sharp jolt of pain',
-    'you power through',
-  ],
-  generic: [
-    'a moment hangs',
-    'the world seems to slow',
-    'you push on regardless',
-  ],
+  physical: ['muscles tense', 'breath ragged', 'a sharp jolt of pain', 'you power through'],
+  generic: ['a moment hangs', 'the world seems to slow', 'you push on regardless'],
 };
-

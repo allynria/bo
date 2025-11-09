@@ -8,7 +8,9 @@ test('Tmp janitor skips locked files and honors skew guard for fresh files', asy
   const captured = [];
   globalThis.UrgaCoreDeps = globalThis.UrgaCoreDeps || {};
   globalThis.UrgaCoreDeps.Metrics = {
-    count: (_ctx, name, delta = 1, labels = {}) => { captured.push({ event: `${name}.count`, delta, labels }); },
+    count: (_ctx, name, delta = 1, labels = {}) => {
+      captured.push({ event: `${name}.count`, delta, labels });
+    },
     gauge: () => {},
     histogramMs: () => {},
   };
@@ -24,7 +26,11 @@ test('Tmp janitor skips locked files and honors skew guard for fresh files', asy
 
   // Create a locked tmp file that is stale by TTL
   await fsp.writeFile(lockedTmp, 'x', 'utf8');
-  await fsp.writeFile(lockPath, JSON.stringify({ pid: process.pid, ts: Date.now() }) + '\n', 'utf8');
+  await fsp.writeFile(
+    lockPath,
+    JSON.stringify({ pid: process.pid, ts: Date.now() }) + '\n',
+    'utf8'
+  );
   const oldDate = new Date(Date.now() - 500);
   await fsp.utimes(lockedTmp, oldDate, oldDate);
 
@@ -35,11 +41,22 @@ test('Tmp janitor skips locked files and honors skew guard for fresh files', asy
 
   // Run janitor with tight TTL but non-zero skew guard so freshBak is preserved
   process.env.TMP_JANITOR_SKEW_GUARD_MS = '2000';
-  const timer = startTmpJanitor({ ttlMs: 100, intervalMs: 50, maxDeletesPerRun: 100, maxRunMs: 200 });
+  const timer = startTmpJanitor({
+    ttlMs: 100,
+    intervalMs: 50,
+    maxDeletesPerRun: 100,
+    maxRunMs: 200,
+  });
   await new Promise((r) => setTimeout(r, 250));
 
-  const existsLockedTmp = await fsp.stat(lockedTmp).then(() => true).catch(() => false);
-  const existsFreshBak = await fsp.stat(freshBak).then(() => true).catch(() => false);
+  const existsLockedTmp = await fsp
+    .stat(lockedTmp)
+    .then(() => true)
+    .catch(() => false);
+  const existsFreshBak = await fsp
+    .stat(freshBak)
+    .then(() => true)
+    .catch(() => false);
 
   assert.equal(existsLockedTmp, true, 'locked tmp file should not be deleted');
   assert.equal(existsFreshBak, true, 'fresh .bak should be preserved by skew guard');
@@ -48,9 +65,16 @@ test('Tmp janitor skips locked files and honors skew guard for fresh files', asy
   assert.equal(ran, true, 'janitor should have run');
 
   // Cleanup artifacts
-  try { timer && clearInterval(timer); } catch {}
-  try { await fsp.rm(lockedTmp, { force: true }); } catch {}
-  try { await fsp.rm(lockPath, { force: true }); } catch {}
-  try { await fsp.rm(freshBak, { force: true }); } catch {}
+  try {
+    timer && clearInterval(timer);
+  } catch {}
+  try {
+    await fsp.rm(lockedTmp, { force: true });
+  } catch {}
+  try {
+    await fsp.rm(lockPath, { force: true });
+  } catch {}
+  try {
+    await fsp.rm(freshBak, { force: true });
+  } catch {}
 });
-

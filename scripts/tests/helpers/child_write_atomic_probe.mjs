@@ -13,4 +13,7 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.log(JSON.stringify({ ok: false, error: String(e && e.message || e) })); process.exit(1); });
+main().catch((e) => {
+  console.log(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+  process.exit(1);
+});

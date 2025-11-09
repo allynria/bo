@@ -16,21 +16,26 @@ const EN = {
     firm: (r) => `No dice. That crosses the line — ${r}.`,
     soft: (r) => `Sorry, doll. That ain’t happening — ${r}.`,
     sarcastic: (r) => `Sure, sweetheart. And while we're at it, let’s rewrite ${r}. No.`,
-  }
+  },
 };
 
-const TR = { // example second locale
+const TR = {
+  // example second locale
   default: {
     firm: (r) => `Hayır. Bu ${r} kuralına aykırı.`,
     soft: (r) => `Üzgünüm, yapamam. ${r} ile çelişiyor.`,
     sarcastic: (r) => `Tabii ya. ${r} yokmuş gibi. Hayır.`,
-  }
+  },
 };
 
-export function pickRefusalTemplate({ locale='en', persona='default', tone='firm', reason='the rules' } = {}) {
-  const packs = (locale.toLowerCase().startsWith('tr')) ? TR : EN;
+export function pickRefusalTemplate({
+  locale = 'en',
+  persona = 'default',
+  tone = 'firm',
+  reason = 'the rules',
+} = {}) {
+  const packs = locale.toLowerCase().startsWith('tr') ? TR : EN;
   const bucket = packs[persona] || packs.default || EN.default;
   const fn = bucket[tone] || bucket.firm || BASE.firm;
   return fn(reason);
 }
-

@@ -16,7 +16,10 @@ async function startService() {
     CONV_AUTH: 'test-token',
     CORS_ALLOWLIST: ' `http://ok.test` ',
   };
-  const child = spawn(process.execPath, ['scripts/service.js'], { env, stdio:['ignore','pipe','pipe'] });
+  const child = spawn(process.execPath, ['scripts/service.js'], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   await onceReady();
   return child;
 }
@@ -24,16 +27,21 @@ async function startService() {
 function onceReady() {
   return new Promise((resolve) => {
     const t = setInterval(() => {
-      http.get({ host:'127.0.0.1', port:Number(PORT), path:'/healthz' }, r => {
-        if (r.statusCode === 200) { clearInterval(t); resolve(); }
-      }).on('error', ()=>{});
+      http
+        .get({ host: '127.0.0.1', port: Number(PORT), path: '/healthz' }, (r) => {
+          if (r.statusCode === 200) {
+            clearInterval(t);
+            resolve();
+          }
+        })
+        .on('error', () => {});
     }, 100);
   });
 }
 
-function sse(path, headers={}) {
+function sse(path, headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request(`${BASE}${path}`, { method:'GET', headers }, (res) => {
+    const req = http.request(`${BASE}${path}`, { method: 'GET', headers }, (res) => {
       let buf = '';
       const out = [];
       res.on('data', (d) => {
@@ -44,7 +52,9 @@ function sse(path, headers={}) {
         if (out.length > 3) resolve(out);
       });
       // Fallbacks to resolve even if event threshold isn't met
-      res.on('end', () => { if (out.length > 0) resolve(out); });
+      res.on('end', () => {
+        if (out.length > 0) resolve(out);
+      });
       setTimeout(() => resolve(out), 3000);
     });
     req.on('error', reject);
@@ -57,20 +67,26 @@ test('style.pref SSE appears (admin channel) and start contains style meta', asy
   try {
     // set style first
     await fetch(`${BASE}/admin/style`, {
-      method:'POST',
-      headers:{ 'content-type':'application/json' },
-      body: JSON.stringify({ conv_id:'C2', preset:'snappy' })
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conv_id: 'C2', preset: 'snappy' }),
     });
     const url = `/v1/conv/stream?conv_id=C2&turn=0&engine=urga&text=Try%20something%20fast.&ts=${Date.now()}`;
     const adminEvP = sse(`/admin/sse/style?conv_id=C2`);
-    const convEvP = sse(url, { origin:' `http://ok.test` ', authorization:'Bearer test-token', accept:'text/event-stream' });
+    const convEvP = sse(url, {
+      origin: ' `http://ok.test` ',
+      authorization: 'Bearer test-token',
+      accept: 'text/event-stream',
+    });
     const [adminEv, convEv] = await Promise.all([adminEvP, convEvP]);
-    const hasPref = adminEv.some(e => e.startsWith('event: style.pref'));
-    const startLineIdx = convEv.findIndex(e => e.startsWith('event: start'));
+    const hasPref = adminEv.some((e) => e.startsWith('event: style.pref'));
+    const startLineIdx = convEv.findIndex((e) => e.startsWith('event: start'));
     assert.ok(hasPref, 'style.pref SSE missing on admin channel');
     assert.ok(startLineIdx >= 0, 'start missing');
     const startChunk = convEv[startLineIdx] || '';
-    const dataLine = (startChunk.split('\n').find(l => l.startsWith('data:')) || '').replace(/^data:\s*/,'').trim();
+    const dataLine = (startChunk.split('\n').find((l) => l.startsWith('data:')) || '')
+      .replace(/^data:\s*/, '')
+      .trim();
     const payload = JSON.parse(dataLine);
     assert.equal(payload?.style?.preset, 'snappy');
     assert.ok(typeof payload?.style?.token_count === 'number');

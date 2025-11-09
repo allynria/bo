@@ -11,8 +11,9 @@ export function hashString(s) {
 }
 
 export function randomId(prefix = '') {
-  try { return prefix + crypto.randomUUID(); } catch {
+  try {
+    return prefix + crypto.randomUUID();
+  } catch {
     return prefix + crypto.randomBytes(16).toString('hex');
   }
 }
-

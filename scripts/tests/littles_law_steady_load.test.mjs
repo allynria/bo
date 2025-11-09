@@ -9,27 +9,47 @@ function startService(env = {}) {
   const script = path.join(process.cwd(), 'scripts', 'service.js');
   const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
   let logs = '';
-  child.stdout.on('data', (d) => { logs += d.toString(); });
-  child.stderr.on('data', (d) => { logs += d.toString(); });
+  child.stdout.on('data', (d) => {
+    logs += d.toString();
+  });
+  child.stderr.on('data', (d) => {
+    logs += d.toString();
+  });
   return { child, getLogs: () => logs };
 }
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let data = '';
-      res.on('data', (d) => { data += d.toString(); });
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, headers: res.headers, json: JSON.parse(data || '{}') }); }
-        catch (e) { reject(e); }
-      });
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (d) => {
+          data += d.toString();
+        });
+        res.on('end', () => {
+          try {
+            resolve({
+              status: res.statusCode,
+              headers: res.headers,
+              json: JSON.parse(data || '{}'),
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
 test('Little’s Law: avg queueDepth ≈ λ × W within 10% under steady load', async () => {
   const port = 3475 + Math.floor(Math.random() * 100);
-  const { child } = startService({ NODE_ENV: 'test', LOG_JSON: '1', PORT: String(port), QUEUE_MAX: '0' });
+  const { child } = startService({
+    NODE_ENV: 'test',
+    LOG_JSON: '1',
+    PORT: String(port),
+    QUEUE_MAX: '0',
+  });
   const base = `http://localhost:${port}`;
   await waitForUp(base, { timeout: 3000 });
 
@@ -70,12 +90,17 @@ test('Little’s Law: avg queueDepth ≈ λ × W within 10% under steady load', 
   const avgDepth = samples.reduce((a, b) => a + b, 0) / Math.max(1, samples.length);
   const W_sec = W_ms / 1000.0;
   const expected = lambda * W_sec;
-  const MAX_DEV = process.platform === 'win32' ? 0.20 : 0.10;
+  const MAX_DEV = process.platform === 'win32' ? 0.2 : 0.1;
   const err = expected > 0 ? Math.abs(avgDepth - expected) / expected : 0;
-  assert.ok(err <= MAX_DEV, `Little’s Law deviation ${(err*100).toFixed(1)}% exceeds ${(MAX_DEV*100).toFixed(0)}% (avgDepth=${avgDepth.toFixed(2)}, λ=${lambda.toFixed(2)}, W=${W_sec.toFixed(3)})`);
+  assert.ok(
+    err <= MAX_DEV,
+    `Little’s Law deviation ${(err * 100).toFixed(1)}% exceeds ${(MAX_DEV * 100).toFixed(0)}% (avgDepth=${avgDepth.toFixed(2)}, λ=${lambda.toFixed(2)}, W=${W_sec.toFixed(3)})`
+  );
 
   await Promise.allSettled(workers);
   await Promise.allSettled([...inflight]);
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });

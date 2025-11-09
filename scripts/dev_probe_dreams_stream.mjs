@@ -40,9 +40,9 @@ async function main() {
             onDelta(model);
           }
           return `stub:${model}`;
-        }
-      }
-    }
+        },
+      },
+    },
   };
 
   const service = new LLMService(context);
@@ -56,10 +56,15 @@ async function main() {
     delta_count: deltas.length,
     model_seen: modelSeen || 'dreams',
     text,
-    now: MessageClock.now()
+    now: MessageClock.now(),
   };
   const joined = deltas.join('');
-  const passed = started && ended && text === 'stub:dreams' && joined === 'stub:dreams' && (modelSeen === 'dreams');
+  const passed =
+    started &&
+    ended &&
+    text === 'stub:dreams' &&
+    joined === 'stub:dreams' &&
+    modelSeen === 'dreams';
   if (!passed) {
     console.error(JSON.stringify({ ok: false, reason: 'streaming assertions failed', result }));
     process.exitCode = 1;
@@ -69,6 +74,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(JSON.stringify({ ok: false, error: String(err && err.message || err) }));
+  console.error(JSON.stringify({ ok: false, error: String((err && err.message) || err) }));
   process.exitCode = 1;
 });

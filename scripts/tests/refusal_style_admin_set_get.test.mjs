@@ -25,12 +25,15 @@ function startService(env = {}) {
 async function waitForUp(port, timeoutMs = 4000) {
   const t0 = Date.now();
   let lastErr = null;
-  while ((Date.now() - t0) < timeoutMs) {
+  while (Date.now() - t0 < timeoutMs) {
     try {
       await new Promise((resolve, reject) => {
-        http.get({ hostname: '127.0.0.1', port, path: '/healthz' }, (res) => {
-          if (res.statusCode === 200) resolve(); else reject(new Error('bad_status'));
-        }).on('error', reject);
+        http
+          .get({ hostname: '127.0.0.1', port, path: '/healthz' }, (res) => {
+            if (res.statusCode === 200) resolve();
+            else reject(new Error('bad_status'));
+          })
+          .on('error', reject);
       });
       return true;
     } catch (e) {
@@ -61,7 +64,9 @@ function postJSON(port, path, body, headers = {}) {
       res.on('data', (d) => (buf += d));
       res.on('end', () => {
         let json = {};
-        try { json = JSON.parse(buf || '{}'); } catch {}
+        try {
+          json = JSON.parse(buf || '{}');
+        } catch {}
         resolve({ status: res.statusCode, json });
       });
     });
@@ -73,27 +78,40 @@ function postJSON(port, path, body, headers = {}) {
 
 function getJSON(port, path, headers = {}) {
   return new Promise((resolve, reject) => {
-    http.get({ hostname: '127.0.0.1', port, path, headers }, (res) => {
-      let buf = '';
-      res.on('data', (d) => (buf += d));
-      res.on('end', () => {
-        let json = {};
-        try { json = JSON.parse(buf || '{}'); } catch {}
-        resolve({ status: res.statusCode, json });
-      });
-    }).on('error', reject);
+    http
+      .get({ hostname: '127.0.0.1', port, path, headers }, (res) => {
+        let buf = '';
+        res.on('data', (d) => (buf += d));
+        res.on('end', () => {
+          let json = {};
+          try {
+            json = JSON.parse(buf || '{}');
+          } catch {}
+          resolve({ status: res.statusCode, json });
+        });
+      })
+      .on('error', reject);
   });
 }
 
 test('admin refusal-style set/get and metric increment', async (t) => {
   const { child, port } = startService();
-  t.after(() => { try { child.kill('SIGINT'); } catch {} });
+  t.after(() => {
+    try {
+      child.kill('SIGINT');
+    } catch {}
+  });
   await waitForUp(port);
 
   const agent = 'AG1';
   const hdrs = { authorization: 'Bearer adm' };
 
-  const setRes = await postJSON(port, `/admin/refusal-style/${agent}`, { style: 'sarcastic' }, hdrs);
+  const setRes = await postJSON(
+    port,
+    `/admin/refusal-style/${agent}`,
+    { style: 'sarcastic' },
+    hdrs
+  );
   assert.equal(setRes.status, 200);
   assert.equal(setRes.json.style, 'sarcastic');
   assert.equal(setRes.json.agent, agent);
@@ -104,6 +122,8 @@ test('admin refusal-style set/get and metric increment', async (t) => {
 
   const metrics = await getJSON(port, '/metrics');
   assert.equal(metrics.status, 200);
-  const hasCounter = Array.isArray(metrics.json?.counters) && metrics.json.counters.some((c) => c.name === 'refusal_style_set_total');
+  const hasCounter =
+    Array.isArray(metrics.json?.counters) &&
+    metrics.json.counters.some((c) => c.name === 'refusal_style_set_total');
   assert.equal(hasCounter, true, 'expected refusal_style_set_total counter');
 });

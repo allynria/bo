@@ -8,11 +8,16 @@ async function main() {
   const raw = await AsyncFS.readFile(specPath, 'utf8');
   const spec = JSON.parse(raw);
   const s = spec?.components?.schemas || {};
-  const msgReq = s.MessageRequest; const msgRes = s.MessageResponse;
-  const compReq = s.CompileRequest; const compRes = s.CompileResponse;
-  const replyMsg = s.ReplyMessage; const message = s.Message;
+  const msgReq = s.MessageRequest;
+  const msgRes = s.MessageResponse;
+  const compReq = s.CompileRequest;
+  const compRes = s.CompileResponse;
+  const replyMsg = s.ReplyMessage;
+  const message = s.Message;
   if (!msgReq || !msgRes || !compReq || !compRes) {
-    throw new Error('OpenAPI components missing required schemas (MessageRequest/Response, CompileRequest/Response).');
+    throw new Error(
+      'OpenAPI components missing required schemas (MessageRequest/Response, CompileRequest/Response).'
+    );
   }
   await AsyncFS.mkdir(outDir, { recursive: true });
   const header = `// Generated from scripts/docs/openapi.json. Do not edit by hand.\n`;
@@ -29,11 +34,19 @@ const CompileRequest = ${JSON.stringify(compReq)};
 const CompileResponse = ${JSON.stringify(compRes)};
 
 // Add referenced component schemas when present
-${replyMsg ? `const ReplyMessage = ${JSON.stringify(replyMsg)};
+${
+  replyMsg
+    ? `const ReplyMessage = ${JSON.stringify(replyMsg)};
 ajv.addSchema(ReplyMessage, '#/components/schemas/ReplyMessage');
-` : ''}${message ? `const Message = ${JSON.stringify(message)};
+`
+    : ''
+}${
+    message
+      ? `const Message = ${JSON.stringify(message)};
 ajv.addSchema(Message, '#/components/schemas/Message');
-` : ''}
+`
+      : ''
+  }
 
 const validateMessageRequest = ajv.compile(MessageRequest);
 const validateMessageResponse = ajv.compile(MessageResponse);
@@ -190,4 +203,7 @@ export function iterateV1ConvStream(baseUrl, opts) {
   await AsyncFS.writeFileAtomic(path.join(outDir, '.generated'), String(Date.now()), 'utf8');
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

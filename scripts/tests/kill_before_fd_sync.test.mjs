@@ -5,7 +5,10 @@ import path from 'node:path';
 import fsp from 'node:fs/promises';
 
 function tmpdir() {
-  const dir = path.join(os.tmpdir(), `kill_before_sync_${process.pid}_${Math.random().toString(36).slice(2)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `kill_before_sync_${process.pid}_${Math.random().toString(36).slice(2)}`
+  );
   return dir;
 }
 
@@ -39,8 +42,11 @@ test('Kill-before-fd.sync leaves tmp artifact and preserves original file', asyn
 
   // Cleanup tmp artifacts and target
   for (const n of tmpNames) {
-    try { await fsp.rm(path.join(dir, n), { force: true }); } catch {}
+    try {
+      await fsp.rm(path.join(dir, n), { force: true });
+    } catch {}
   }
-  try { await fsp.rm(target, { force: true }); } catch {}
+  try {
+    await fsp.rm(target, { force: true });
+  } catch {}
 });
-

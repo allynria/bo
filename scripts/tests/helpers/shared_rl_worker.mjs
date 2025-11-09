@@ -16,7 +16,7 @@ async function main() {
   if (alignStart === '1' || alignStart.toLowerCase() === 'true') {
     const slackMs = 20;
     const target = windowMs;
-    while ((Date.now() % target) > slackMs) {
+    while (Date.now() % target > slackMs) {
       await new Promise((r) => setTimeout(r, 5));
     }
   }
@@ -29,16 +29,23 @@ async function main() {
   const backendName = String(process.env.RL_BACKEND || 'file').toLowerCase();
   let backend = undefined;
   if (backendName === 'redis' && typeof monolith.createRedisRateLimitBackend === 'function') {
-    try { backend = monolith.createRedisRateLimitBackend({}); } catch {}
+    try {
+      backend = monolith.createRedisRateLimitBackend({});
+    } catch {}
   }
   const rl = createSharedRateLimiter({ limit, windowMs, backend });
-  let ok = 0, internal = 0, rlBlocked = 0;
+  let ok = 0,
+    internal = 0,
+    rlBlocked = 0;
   if (runForMs > 0) {
     const end = Date.now() + runForMs;
     while (Date.now() < end) {
       try {
         const r = await rl.allow(key);
-        if (r.ok) ok++; else if (r.internal_error) internal++; else if (r.rate_limited) rlBlocked++; else rlBlocked++;
+        if (r.ok) ok++;
+        else if (r.internal_error) internal++;
+        else if (r.rate_limited) rlBlocked++;
+        else rlBlocked++;
       } catch {
         rlBlocked++;
       }
@@ -47,7 +54,10 @@ async function main() {
     for (let i = 0; i < calls; i++) {
       try {
         const r = await rl.allow(key);
-        if (r.ok) ok++; else if (r.internal_error) internal++; else if (r.rate_limited) rlBlocked++; else rlBlocked++;
+        if (r.ok) ok++;
+        else if (r.internal_error) internal++;
+        else if (r.rate_limited) rlBlocked++;
+        else rlBlocked++;
       } catch {
         rlBlocked++;
       }
@@ -59,4 +69,7 @@ async function main() {
   console.warn = orig.warn;
 }
 
-main().catch(e => { console.error('worker_error', e && e.stack || e); process.exitCode = 1; });
+main().catch((e) => {
+  console.error('worker_error', (e && e.stack) || e);
+  process.exitCode = 1;
+});

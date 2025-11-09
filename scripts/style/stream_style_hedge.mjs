@@ -15,7 +15,7 @@ const CFG = {
   ENABLED: String(process.env.STYLE_HEDGE_ENABLED ?? '1') === '1',
   FIRST_MS: Number(process.env.STYLE_HEDGE_FIRST_MS ?? 350),
   MAX_MS: Number(process.env.STYLE_HEDGE_MAX_MS ?? 2000),
-  ALT_PROVIDER: process.env.HEDGE_STYLE_PROVIDER || null
+  ALT_PROVIDER: process.env.HEDGE_STYLE_PROVIDER || null,
 };
 
 export function getStyleAlt(plan) {
@@ -29,7 +29,7 @@ export function getStyleAlt(plan) {
 
 export async function runStyleHedge(ctx, startPrimary, startBackup, onSwitch, resOrEmit) {
   // ctx: request-scoped ctx with io.events
-  if (!CFG.ENABLED) return { enabled:false };
+  if (!CFG.ENABLED) return { enabled: false };
 
   let switched = false;
   let primaryStarted = false;
@@ -41,8 +41,12 @@ export async function runStyleHedge(ctx, startPrimary, startBackup, onSwitch, re
     // else service will call res.write itself
   };
 
-  announce('hedge.style.start', { first_ms: CFG.FIRST_MS, max_ms: CFG.MAX_MS, alt_provider: CFG.ALT_PROVIDER || 'same' });
-  ctx?.metrics?.inc?.('style_hedge_started_total', { path:'stream' });
+  announce('hedge.style.start', {
+    first_ms: CFG.FIRST_MS,
+    max_ms: CFG.MAX_MS,
+    alt_provider: CFG.ALT_PROVIDER || 'same',
+  });
+  ctx?.metrics?.inc?.('style_hedge_started_total', { path: 'stream' });
 
   // kick primary now
   const primary = await startPrimary();
@@ -58,7 +62,11 @@ export async function runStyleHedge(ctx, startPrimary, startBackup, onSwitch, re
 
   // guard: stop backup attempt after MAX_MS if not needed
   setTimeout(() => {
-    if (!switched && abortBackup) { try { abortBackup(); } catch {} }
+    if (!switched && abortBackup) {
+      try {
+        abortBackup();
+      } catch {}
+    }
   }, CFG.MAX_MS);
 
   // onSwitch(firstDeltaFrom, meta)
@@ -66,15 +74,29 @@ export async function runStyleHedge(ctx, startPrimary, startBackup, onSwitch, re
     notifyFirst(from, meta) {
       if (switched) return;
       switched = true;
-      try { stopBackupTimer?.(); } catch {}
-      if (from === 'backup' && primary?.cancel) { try { primary.cancel(); } catch {} }
-      if (from === 'primary' && abortBackup) { try { abortBackup(); } catch {} }
+      try {
+        stopBackupTimer?.();
+      } catch {}
+      if (from === 'backup' && primary?.cancel) {
+        try {
+          primary.cancel();
+        } catch {}
+      }
+      if (from === 'primary' && abortBackup) {
+        try {
+          abortBackup();
+        } catch {}
+      }
       onSwitch?.(from, meta);
-      announce('hedge.style.switch', { from, provider: meta?.provider, model: meta?.model, style: meta?.style });
-      ctx?.metrics?.inc?.('style_hedge_switch_total', { from, path:'stream' });
-    }
+      announce('hedge.style.switch', {
+        from,
+        provider: meta?.provider,
+        model: meta?.model,
+        style: meta?.style,
+      });
+      ctx?.metrics?.inc?.('style_hedge_switch_total', { from, path: 'stream' });
+    },
   };
 }
 
 export default { runStyleHedge, getStyleAlt };
-

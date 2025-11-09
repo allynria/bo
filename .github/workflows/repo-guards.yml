@@ -2,7 +2,7 @@ name: repo-guards
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   verify:

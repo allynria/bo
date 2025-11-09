@@ -6,7 +6,10 @@ import { promises as fsp } from 'node:fs';
 
 test('Rate-limit backend truncates long filenames to Windows-safe length', async () => {
   // Isolate TMPDIR for this test to avoid interference
-  const tmpBase = path.join(os.tmpdir(), `trae_rl_pathlen_${process.pid}_${Math.random().toString(36).slice(2)}`);
+  const tmpBase = path.join(
+    os.tmpdir(),
+    `trae_rl_pathlen_${process.pid}_${Math.random().toString(36).slice(2)}`
+  );
   await fsp.mkdir(tmpBase, { recursive: true });
   process.env.TMPDIR = tmpBase;
   process.env.TEMP = '';
@@ -19,7 +22,7 @@ test('Rate-limit backend truncates long filenames to Windows-safe length', async
   // Construct a very long key so hex length >> 120
   const key = 'x'.repeat(300); // hex length = 600
   const hex = Buffer.from(String(key)).toString('hex');
-  const shard = (hex.slice(0, 2) || '00');
+  const shard = hex.slice(0, 2) || '00';
   // FNV-1a helper replicating backend behavior
   function fnv1aHex(s) {
     let h = 0x811c9dc5;
@@ -38,6 +41,5 @@ test('Rate-limit backend truncates long filenames to Windows-safe length', async
   const st = await fsp.stat(expectedFile).catch(() => null);
   assert.ok(!!st, 'expected truncated backend file to exist');
   const base = path.basename(expectedFile);
-  assert.ok(base.length <= (120 + 1 + 8 + 5), `filename too long: ${base.length}`);
+  assert.ok(base.length <= 120 + 1 + 8 + 5, `filename too long: ${base.length}`);
 });
-

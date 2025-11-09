@@ -5,26 +5,10 @@
 //   defaultStyles
 
 export const defaultStyles = {
-  firm: [
-    "No. That won't happen.",
-    "That goes against what I stand for.",
-    "Absolutely not."
-  ],
-  soft: [
-    "I'm sorry, but I can't do that.",
-    "I won't go along with that.",
-    "I have to refuse."
-  ],
-  sarcastic: [
-    "What do you take me for?",
-    "Try again. With reality this time.",
-    "Cute. Still no."
-  ],
-  blunt: [
-    "No.",
-    "Denied.",
-    "Refused."
-  ]
+  firm: ["No. That won't happen.", 'That goes against what I stand for.', 'Absolutely not.'],
+  soft: ["I'm sorry, but I can't do that.", "I won't go along with that.", 'I have to refuse.'],
+  sarcastic: ['What do you take me for?', 'Try again. With reality this time.', 'Cute. Still no.'],
+  blunt: ['No.', 'Denied.', 'Refused.'],
 };
 
 export function normalizeStyle(style) {
@@ -43,11 +27,7 @@ export function renderRefusal({ style, reason, belief, spine, userText }) {
 
   // In-character, short, non-OOC. Keep it tight to avoid bloat.
   // Parenthetical booster for memoryPrefix (stealth).
-  const line = [
-    base,
-    why ? ` ${why}` : '',
-    mood ? ` ${mood}` : ''
-  ].join('').trim();
+  const line = [base, why ? ` ${why}` : '', mood ? ` ${mood}` : ''].join('').trim();
   return `(${line})`;
 }
 

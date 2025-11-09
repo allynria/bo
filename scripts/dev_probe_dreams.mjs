@@ -1,9 +1,5 @@
 import { EventEmitter } from 'node:events';
-import {
-  generateLine,
-  MessageClock,
-  ModelAdapter,
-} from '../monolith.js';
+import { generateLine, MessageClock, ModelAdapter } from '../monolith.js';
 
 async function main() {
   const io = { events: new EventEmitter() };
@@ -25,7 +21,7 @@ async function main() {
         return out;
       }
       return out;
-    }
+    },
   };
 
   // Attach stub provider via ModelAdapter path
@@ -41,11 +37,10 @@ async function main() {
     text,
     now: MessageClock.now(),
   };
-  process.stdout.write(JSON.stringify(result) + "\n");
+  process.stdout.write(JSON.stringify(result) + '\n');
 }
 
 main().catch((e) => {
-  process.stdout.write(JSON.stringify({ ok: false, error: String(e && e.message || e) }) + "\n");
+  process.stdout.write(JSON.stringify({ ok: false, error: String((e && e.message) || e) }) + '\n');
   process.exitCode = 1;
 });
-

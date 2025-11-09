@@ -32,4 +32,3 @@
 
 - If `@opentelemetry/api` is not installed, tracing is a no-op; code paths are safe.
 - Tracing attributes prefer minimal cardinality (`fs.path`, durations, simple booleans). Avoid attaching high-cardinality payloads.
-

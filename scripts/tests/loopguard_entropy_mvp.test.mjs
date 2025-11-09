@@ -9,19 +9,48 @@ function startService(env = {}) {
   const script = path.join(process.cwd(), 'scripts', 'service.js');
   const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
   let logs = '';
-  child.stdout.on('data', (d) => { logs += d.toString(); });
-  child.stderr.on('data', (d) => { logs += d.toString(); });
+  child.stdout.on('data', (d) => {
+    logs += d.toString();
+  });
+  child.stderr.on('data', (d) => {
+    logs += d.toString();
+  });
   return { child, getLogs: () => logs };
 }
 
 function postJson(url, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const data = Buffer.from(JSON.stringify(body || {}));
-    const req = http.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': String(data.length), ...headers } }, (res) => {
-      let text = '';
-      res.on('data', (c) => { text += c.toString(); });
-      res.on('end', () => resolve({ status: res.statusCode, text, json: (() => { try { return JSON.parse(text); } catch { return {}; } })() }));
-    });
+    const req = http.request(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(data.length),
+          ...headers,
+        },
+      },
+      (res) => {
+        let text = '';
+        res.on('data', (c) => {
+          text += c.toString();
+        });
+        res.on('end', () =>
+          resolve({
+            status: res.statusCode,
+            text,
+            json: (() => {
+              try {
+                return JSON.parse(text);
+              } catch {
+                return {};
+              }
+            })(),
+          })
+        );
+      }
+    );
     req.on('error', reject);
     req.write(data);
     req.end();
@@ -32,8 +61,21 @@ function getJson(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(url, { method: 'GET', headers }, (res) => {
       let text = '';
-      res.on('data', (c) => { text += c.toString(); });
-      res.on('end', () => resolve({ status: res.statusCode, json: (() => { try { return JSON.parse(text); } catch { return {}; } })() }));
+      res.on('data', (c) => {
+        text += c.toString();
+      });
+      res.on('end', () =>
+        resolve({
+          status: res.statusCode,
+          json: (() => {
+            try {
+              return JSON.parse(text);
+            } catch {
+              return {};
+            }
+          })(),
+        })
+      );
     });
     req.on('error', reject);
     req.end();
@@ -57,22 +99,36 @@ test('Entropy MVP: similar messages trigger entropy reroll metric', async () => 
     LOOP_EMBED_ENABLED: '0',
     LOOP_ENTROPY_ENABLED: '1',
     LOOP_ENTROPY_MIN: '3.0',
-    LOOP_ENTROPY_MIN_LEN: '1'
+    LOOP_ENTROPY_MIN_LEN: '1',
   });
   await waitForUp(base, { timeout: 5000 });
 
   const conv = 'entropy-loop-test';
   const nowA = Date.now();
-  const a = await postJson(`${base}/conv/message`, { conv_id: conv, text: 'She smiles softly and nods.', ts: nowA }, { origin: allowed, authorization: `Bearer ${token}` });
+  const a = await postJson(
+    `${base}/conv/message`,
+    { conv_id: conv, text: 'She smiles softly and nods.', ts: nowA },
+    { origin: allowed, authorization: `Bearer ${token}` }
+  );
   assert.equal(a.status, 200);
   const nowB = Date.now();
-  const b = await postJson(`${base}/conv/message`, { conv_id: conv, text: 'She smiles softly again.', ts: nowB }, { origin: allowed, authorization: `Bearer ${token}` });
+  const b = await postJson(
+    `${base}/conv/message`,
+    { conv_id: conv, text: 'She smiles softly again.', ts: nowB },
+    { origin: allowed, authorization: `Bearer ${token}` }
+  );
   assert.equal(b.status, 200);
 
   const m = await getJson(`${base}/metrics`);
   assert.equal(m.status, 200);
-  const hit = Array.isArray(m.json?.counters) && m.json.counters.some((c) => c.name === 'loopguard_entropy_trigger_total' && c.labels?.path === 'message');
+  const hit =
+    Array.isArray(m.json?.counters) &&
+    m.json.counters.some(
+      (c) => c.name === 'loopguard_entropy_trigger_total' && c.labels?.path === 'message'
+    );
   assert.equal(hit, true, 'expected loopguard_entropy_trigger_total metric');
 
-  try { child.kill(); } catch {}
+  try {
+    child.kill();
+  } catch {}
 });

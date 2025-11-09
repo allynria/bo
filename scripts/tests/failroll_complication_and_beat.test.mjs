@@ -24,23 +24,31 @@ function startService(env = {}) {
       SSE_HEARTBEAT_MS: '500',
       ...env,
     },
-    stdio: 'ignore'
+    stdio: 'ignore',
   });
   return child;
 }
 
 function sse(url, idemKey) {
   return new Promise((resolve, reject) => {
-    const headers = { accept: 'text/event-stream', authorization: 'Bearer test-token', origin: 'http://ok.test' };
+    const headers = {
+      accept: 'text/event-stream',
+      authorization: 'Bearer test-token',
+      origin: 'http://ok.test',
+    };
     if (idemKey) headers['x-idempotency-key'] = idemKey;
-    http.get(url, { headers }, res => {
-      let buf = '';
-      res.on('data', d => { buf += d.toString('utf8'); });
-      // Resolve when stream ends or after timeout
-      res.on('end', () => resolve(buf));
-      setTimeout(() => resolve(buf), 3000);
-      res.on('error', reject);
-    }).on('error', reject);
+    http
+      .get(url, { headers }, (res) => {
+        let buf = '';
+        res.on('data', (d) => {
+          buf += d.toString('utf8');
+        });
+        // Resolve when stream ends or after timeout
+        res.on('end', () => resolve(buf));
+        setTimeout(() => resolve(buf), 3000);
+        res.on('error', reject);
+      })
+      .on('error', reject);
   });
 }
 
@@ -55,7 +63,7 @@ function sse(url, idemKey) {
     FAILROLL_SUSPICION_WEIGHT: '0',
     FAILROLL_TENSION_WEIGHT: '0',
     FAILROLL_BASE_CHANCE: '0.30',
-    FAILROLL_VERB_COOLDOWN_ENABLED: '0'
+    FAILROLL_VERB_COOLDOWN_ENABLED: '0',
   });
   await waitForUp('http://localhost:3809', { timeout: 3000 });
 
@@ -71,7 +79,12 @@ function sse(url, idemKey) {
     if (!m || !m[1]) continue;
     const payload = JSON.parse(m[1]);
     // Stop when success with near-miss is observed
-    if (payload && payload.outcome && /success/.test(String(payload.outcome)) && payload.nearMiss === true) {
+    if (
+      payload &&
+      payload.outcome &&
+      /success/.test(String(payload.outcome)) &&
+      payload.nearMiss === true
+    ) {
       near = payload;
       break;
     }
@@ -83,15 +96,24 @@ function sse(url, idemKey) {
 
   // Hit /metrics to confirm counters
   const metrics = await new Promise((resolve, reject) => {
-    http.get('http://localhost:3809/metrics', res => {
-      let data=''; res.on('data', c => data += c); res.on('end', () => resolve(data));
-    }).on('error', reject);
+    http
+      .get('http://localhost:3809/metrics', (res) => {
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => resolve(data));
+      })
+      .on('error', reject);
   });
 
   assert.match(metrics, /failroll_evaluations_total/);
   assert.match(metrics, /failroll_complications_total/);
   assert.match(metrics, /failroll_tension_adjust_total/);
 
-  try { ps.kill('SIGINT'); } catch {}
+  try {
+    ps.kill('SIGINT');
+  } catch {}
   console.log('✓ failroll complication + beat rewards OK');
-})().catch(e => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

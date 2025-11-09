@@ -9,9 +9,8 @@ groups:
         labels:
           severity: page
         annotations:
-          summary: "Sustained abuse spike detected"
+          summary: 'Sustained abuse spike detected'
           description: |
             Signal={{ $labels.signal }} Source={{ $labels.source }}
             Buckets and threshold are controlled by env:
             ABUSE_ALERT_BUCKET_MS, ABUSE_ALERT_SUSTAINED_BUCKETS, ABUSE_ALERT_THRESHOLD.
-

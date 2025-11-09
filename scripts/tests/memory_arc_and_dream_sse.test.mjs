@@ -10,10 +10,14 @@ const ADMIN = 'ci';
 const CONV_AUTH = 'test-token';
 
 // simple fetch wrapper
-async function jfetch(url, opts={}) {
+async function jfetch(url, opts = {}) {
   const res = await fetch(url, opts);
   const txt = await res.text();
-  try { return { res, json: JSON.parse(txt) }; } catch { return { res, text: txt }; }
+  try {
+    return { res, json: JSON.parse(txt) };
+  } catch {
+    return { res, text: txt };
+  }
 }
 
 let child;
@@ -24,13 +28,13 @@ before(async () => {
       ...process.env,
       NODE_ENV: 'production',
       TEST_HELPERS: '1',
-      TEST_MEMORY_API: '1',          // enable test-only memory admin APIs
-      MEMORY_DREAMS_EVERY: '1',      // make dream injection deterministic
+      TEST_MEMORY_API: '1', // enable test-only memory admin APIs
+      MEMORY_DREAMS_EVERY: '1', // make dream injection deterministic
       PORT,
       // auth + replay window requirements
       CONV_AUTH,
       REPLAY_WINDOW_MS: '60000',
-      CORS_ALLOWLIST: '',    // no CORS gating
+      CORS_ALLOWLIST: '', // no CORS gating
       // stubs
       LLM_TEST_STUBS: '1',
       URGA_PROVIDER: 'stub-urga',
@@ -42,7 +46,7 @@ before(async () => {
       DREAM_MIN_REPEATS: '1',
       DREAM_TTL_TURNS: '2',
     },
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   // wait for ready
@@ -51,7 +55,10 @@ before(async () => {
   while (Date.now() < readyBy) {
     try {
       const { res, json } = await jfetch(`${BASE}/healthz`);
-      if (res.ok && json && (json.ready ?? json.ok ?? true)) { healthy = true; break; }
+      if (res.ok && json && (json.ready ?? json.ok ?? true)) {
+        healthy = true;
+        break;
+      }
     } catch {}
     await delay(200);
   }
@@ -60,7 +67,9 @@ before(async () => {
 
 after(async () => {
   if (child) {
-    try { child.kill('SIGINT'); } catch {}
+    try {
+      child.kill('SIGINT');
+    } catch {}
     await delay(200);
   }
 });
@@ -73,8 +82,8 @@ test('SSE emits memory.arc and memory.dream', async (t) => {
   {
     const { res, json } = await jfetch(`${BASE}/memory/arc`, {
       method: 'POST',
-      headers: { 'content-type':'application/json' },
-      body: JSON.stringify({ conv_id, arc: arcName })
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conv_id, arc: arcName }),
     });
     assert.equal(res.status, 200, 'POST /memory/arc status');
     assert.equal(json.ok, true);
@@ -85,16 +94,16 @@ test('SSE emits memory.arc and memory.dream', async (t) => {
   {
     const { res, json } = await jfetch(`${BASE}/__test/fact`, {
       method: 'POST',
-      headers: { 'content-type':'application/json' },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         conv_id,
         text: 'She hid the locket beneath the Cathedral altar.',
         weight: 0.95,
         score: 0.9,
-        repeats: 2,                // meets DREAM_MIN_REPEATS=1
+        repeats: 2, // meets DREAM_MIN_REPEATS=1
         agent_id: 'bot',
-        arc_tags: [arcName]
-      })
+        arc_tags: [arcName],
+      }),
     });
     assert.equal(res.status, 200, 'seed fact status');
     assert.equal(json.ok, true);
@@ -105,10 +114,10 @@ test('SSE emits memory.arc and memory.dream', async (t) => {
   const url = `${BASE}/v1/conv/stream?engine=urga&conv_id=${encodeURIComponent(conv_id)}&turn=0&text=${encodeURIComponent('We return to the Cathedral altar now')}&ts=${ts}&arc=${encodeURIComponent(arcName)}`;
   const res = await fetch(url, {
     headers: {
-      'accept': 'text/event-stream',
-      'authorization': `Bearer ${CONV_AUTH}`,
-      'x-agent-id': 'bot'
-    }
+      accept: 'text/event-stream',
+      authorization: `Bearer ${CONV_AUTH}`,
+      'x-agent-id': 'bot',
+    },
   });
   assert.equal(res.status, 200, 'SSE 200');
 
@@ -156,5 +165,7 @@ test('SSE emits memory.arc and memory.dream', async (t) => {
   assert.ok(seenDream, 'expected memory.dream event');
 
   // close the stream
-  try { await res.body.cancel(); } catch {}
+  try {
+    await res.body.cancel();
+  } catch {}
 });

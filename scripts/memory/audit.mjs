@@ -20,7 +20,8 @@ export function pushAudit(entry = {}) {
       guard_hint: entry.guard_hint || null,
       memory_inject_text: entry.memory_inject_text || '',
       memory_inject_tokens: Number(entry.memory_inject_tokens || 0),
-      continuity_overall: typeof entry.continuity_overall === 'number' ? entry.continuity_overall : null,
+      continuity_overall:
+        typeof entry.continuity_overall === 'number' ? entry.continuity_overall : null,
       continuity_axes: entry.continuity_axes || null,
       shadow_nudge: entry.shadow_nudge || null,
       meta: entry.meta || null,
@@ -35,7 +36,6 @@ export function pushAudit(entry = {}) {
 
 export function getAudit({ convId = '', limit = 100 } = {}) {
   const lim = Math.max(1, Math.min(1000, Number(limit || 100)));
-  const list = convId ? BUF.filter(x => String(x.conv_id || '') === String(convId)) : BUF;
+  const list = convId ? BUF.filter((x) => String(x.conv_id || '') === String(convId)) : BUF;
   return list.slice(Math.max(0, list.length - lim));
 }
-

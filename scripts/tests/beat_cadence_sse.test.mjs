@@ -19,16 +19,19 @@ async function start() {
     BEATS_SMOOTH_ALPHA: '0.8',
     BEATS_RISING_THRESHOLD: '0.2',
     BEATS_PEAK_THRESHOLD: '0.5',
-    BEATS_FALLING_THRESHOLD: '0.15'
+    BEATS_FALLING_THRESHOLD: '0.15',
   };
-  const child = spawn(process.execPath, ['scripts/service.js'], { env, stdio:['ignore','pipe','pipe'] });
-  await new Promise(r => setTimeout(r, 700));
+  const child = spawn(process.execPath, ['scripts/service.js'], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  await new Promise((r) => setTimeout(r, 700));
   return child;
 }
 
-function sseCollect(path, headers={}) {
+function sseCollect(path, headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request(`${BASE}${path}`, { method:'GET', headers }, (res) => {
+    const req = http.request(`${BASE}${path}`, { method: 'GET', headers }, (res) => {
       let buf = '';
       res.on('data', (d) => {
         buf += d.toString('utf8');
@@ -36,7 +39,7 @@ function sseCollect(path, headers={}) {
           resolve(buf);
         }
       });
-      setTimeout(()=>resolve(buf), 2500);
+      setTimeout(() => resolve(buf), 2500);
     });
     req.on('error', reject);
     req.end();
@@ -48,11 +51,14 @@ test('emits beat.tick and cadence.plan', async () => {
   try {
     const q = encodeURIComponent('She gasps—heart pounding—"Run!"');
     const url = `/v1/conv/stream?conv_id=BEAT1&turn=0&engine=urga&text=${q}&ts=${Date.now()}`;
-    const buf = await sseCollect(url, { origin:' `http://ok.test` ', authorization:'Bearer test-token', accept:'text/event-stream' });
+    const buf = await sseCollect(url, {
+      origin: ' `http://ok.test` ',
+      authorization: 'Bearer test-token',
+      accept: 'text/event-stream',
+    });
     assert.ok(buf.includes('event: beat.tick'), 'expected beat.tick');
     assert.ok(buf.includes('event: cadence.plan'), 'expected cadence.plan');
   } finally {
     svc.kill('SIGINT');
   }
 });
-

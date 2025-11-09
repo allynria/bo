@@ -14,7 +14,10 @@ test('Rate-limit file TTL/GC deletes expired files', async () => {
   process.env.RL_GC_MAX_RUN_MS = '500';
 
   // Isolate TMPDIR to ensure GC scans a small, dedicated directory
-  const tmpBase = path.join(os.tmpdir(), `trae_rl_gc_${process.pid}_${Math.random().toString(36).slice(2)}`);
+  const tmpBase = path.join(
+    os.tmpdir(),
+    `trae_rl_gc_${process.pid}_${Math.random().toString(36).slice(2)}`
+  );
   await fsp.mkdir(tmpBase, { recursive: true });
   process.env.TMPDIR = tmpBase;
   process.env.TEMP = '';
@@ -27,11 +30,16 @@ test('Rate-limit file TTL/GC deletes expired files', async () => {
   const key = 'gc-test-' + Math.random().toString(36).slice(2);
   await limiter.allow(key); // create the file
 
-  const base = String(process?.env?.TMPDIR || process?.env?.TEMP || process?.env?.TMP || os.tmpdir());
+  const base = String(
+    process?.env?.TMPDIR || process?.env?.TEMP || process?.env?.TMP || os.tmpdir()
+  );
   const hex = Buffer.from(String(key)).toString('hex');
-  const shard = (hex.slice(0, 2) || '00');
+  const shard = hex.slice(0, 2) || '00';
   const p = path.join(base, 'urga_rl', shard, `${hex}.json`);
-  const existsBefore = await fsp.stat(p).then(() => true).catch(() => false);
+  const existsBefore = await fsp
+    .stat(p)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(existsBefore, true, 'backend file should exist before GC');
 
   // Make it stale beyond TTL (older than 70s)
@@ -41,6 +49,9 @@ test('Rate-limit file TTL/GC deletes expired files', async () => {
   // Wait for at least one GC run (interval >= 5s)
   await new Promise((r) => setTimeout(r, 6000));
 
-  const existsAfter = await fsp.stat(p).then(() => true).catch(() => false);
+  const existsAfter = await fsp
+    .stat(p)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(existsAfter, false, 'backend file should be deleted by GC');
 });

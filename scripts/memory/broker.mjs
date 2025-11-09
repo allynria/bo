@@ -5,12 +5,26 @@ import { TokenCounter, SafeText, sampled } from '../../monolith.js';
 import { selectWithDiversity } from './selector.mjs';
 import { loadFacets, pickFacets, facetToNarrative } from './facets.mjs';
 import { shadowSnapshot } from './shadow.mjs';
-import { initMemoryStore, getSTR, setSTR, getEF, pushEF, getCF, upsertCF, cheapHash } from './store.mjs';
+import {
+  initMemoryStore,
+  getSTR,
+  setSTR,
+  getEF,
+  pushEF,
+  getCF,
+  upsertCF,
+  cheapHash,
+} from './store.mjs';
 import { labelExchange } from './labeler.mjs';
-import { buildRecapLine, pickEpisodicCue, renderEpisodicCue, renderFacetEcho } from './injectors.mjs';
+import {
+  buildRecapLine,
+  pickEpisodicCue,
+  renderEpisodicCue,
+  renderFacetEcho,
+} from './injectors.mjs';
 import { craftBeliefBoosters } from './belief_enforcer.mjs';
 
-const env = (k, d) => (process.env[k] ?? d);
+const env = (k, d) => process.env[k] ?? d;
 
 const ENABLED = env('MEMORY_ENABLED', '1') !== '0';
 const SUMM_EVERY = Number(env('MEMORY_STR_SUMMARIZE_EVERY', 4));
@@ -18,7 +32,10 @@ const INJECT_BUDGET = Number(env('MEMORY_INJECT_BUDGET_TOKENS', 120));
 const MIN_IMPORTANCE = Number(env('MEMORY_MIN_IMPORTANCE', 0.6));
 const ECHO_PROB = Number(env('MEMORY_ECHO_PROB_PCT', 35));
 
-function randPct() { const r = (globalThis.__RNG__ ? globalThis.__RNG__() : Math.random()); return r * 100; }
+function randPct() {
+  const r = globalThis.__RNG__ ? globalThis.__RNG__() : Math.random();
+  return r * 100;
+}
 
 export async function preTurnMemory({ convId, turn, model, userText }) {
   if (!ENABLED) return { injectText: '' };
@@ -46,34 +63,40 @@ export async function preTurnMemory({ convId, turn, model, userText }) {
     const L = Number(process.env.MEMORY_EF_LAMBDA || 0.75); // alpha
     const K = Math.max(1, Math.min(16, Number(process.env.MEMORY_EF_TOP_K || 8)));
     const nowTurn = turn || 0;
-    const candidates = ef.items.map(it => ({
+    const candidates = ef.items.map((it) => ({
       ...it,
       // recency decayed importance
       imp2: decayScore(it.imp || 1, Math.max(0, nowTurn - (it.turn || 0))),
-      rec: 0 // already absorbed in imp2
+      rec: 0, // already absorbed in imp2
     }));
     const picked = selectWithDiversity(candidates, {
       k: K,
-      importance: (it)=>it.imp2,
-      recency: ()=>0,
+      importance: (it) => it.imp2,
+      recency: () => 0,
       alpha: L,
       temperature: T,
-      simFn: (a,b)=> {
+      simFn: (a, b) => {
         // prefer diversity on textual memory; fall back to 0 when missing
         if (!a?.txt || !b?.txt) return 0;
-        const A = (a.txt+'').toLowerCase(), B = (b.txt+'').toLowerCase();
-        const aSet = new Set(A.match(/[a-z0-9]+/g)||[]);
-        const bSet = new Set(B.match(/[a-z0-9]+/g)||[]);
+        const A = (a.txt + '').toLowerCase(),
+          B = (b.txt + '').toLowerCase();
+        const aSet = new Set(A.match(/[a-z0-9]+/g) || []);
+        const bSet = new Set(B.match(/[a-z0-9]+/g) || []);
         if (!aSet.size && !bSet.size) return 0;
-        let inter=0; for (const x of aSet) if (bSet.has(x)) inter++;
+        let inter = 0;
+        for (const x of aSet) if (bSet.has(x)) inter++;
         return inter / (aSet.size + bSet.size - inter || 1);
-      }
+      },
     });
     for (const it of picked) {
       const who = SafeText.stripDangerous(String(it.who || 'they'));
       const txtBase = SafeText.stripDangerous(String(it.txt || ''));
-      const txt = SafeText.clamp(txtBase, Math.max(40, Math.min(160, Number(process.env.MEMORY_EF_SNIPPET_MAX_CHARS || 120))));
-      if (txt.length < txtBase.length) sampled('debug', 0.02, '[broker] EF snippet truncated/sanitized');
+      const txt = SafeText.clamp(
+        txtBase,
+        Math.max(40, Math.min(160, Number(process.env.MEMORY_EF_SNIPPET_MAX_CHARS || 120)))
+      );
+      if (txt.length < txtBase.length)
+        sampled('debug', 0.02, '[broker] EF snippet truncated/sanitized');
       snippets.push(`(${who} remembered: ${txt})`);
     }
   }
@@ -92,20 +115,27 @@ export async function preTurnMemory({ convId, turn, model, userText }) {
     const enable = String(process.env.FACETS_ENABLED || '1') === '1';
     if (enable) {
       const frac = Math.max(0, Math.min(1, Number(process.env.FACETS_BUDGET_FRACTION || 0.35)));
-      const k    = Math.max(0, Math.min(4, Number(process.env.FACETS_TOP_K || 2)));
-      const T    = Number(process.env.FACETS_TEMPERATURE || 0.7);
-      const L    = Number(process.env.FACETS_LAMBDA || 0.75);
+      const k = Math.max(0, Math.min(4, Number(process.env.FACETS_TOP_K || 2)));
+      const T = Number(process.env.FACETS_TEMPERATURE || 0.7);
+      const L = Number(process.env.FACETS_LAMBDA || 0.75);
       const half = Number(process.env.FACETS_DECAY_HALF_LIFE_TURNS || 64);
-      const who  = process.env.FACETS_WHO || 'they';
+      const who = process.env.FACETS_WHO || 'they';
       // Budget coordination with the caller: rely on MEMORY_INJECT_BUDGET_TOKENS env (read up in service)
       const totalBudget = Number(process.env.MEMORY_INJECT_BUDGET_TOKENS || 120);
       const facetBudget = Math.floor(totalBudget * frac);
       // Load and pick
       const store = await loadFacets(convId);
       const charId = process.env.FACETS_CHAR_ID || 'bot';
-      const list = (store.characters?.[charId]) || [];
+      const list = store.characters?.[charId] || [];
       if (list.length) {
-        const chosen = pickFacets({ list, nowTurn: (turn||0), k, temperature: T, alpha: L, halfLife: half });
+        const chosen = pickFacets({
+          list,
+          nowTurn: turn || 0,
+          k,
+          temperature: T,
+          alpha: L,
+          halfLife: half,
+        });
         // Synthesize narrative lines (roughly ~10–16 tokens each)
         const lines = [];
         for (const f of chosen) {
@@ -126,8 +156,8 @@ export async function preTurnMemory({ convId, turn, model, userText }) {
     const SHADOW = String(process.env.SHADOW_ENABLED || '1') === '1';
     if (SHADOW) {
       const budget = Number(process.env.MEMORY_INJECT_BUDGET_TOKENS || 120);
-      const share  = Math.max(0, Math.min(1, Number(process.env.SHADOW_RECAP_FRACTION || 0.4)));
-      const allow  = Math.floor(budget * share);
+      const share = Math.max(0, Math.min(1, Number(process.env.SHADOW_RECAP_FRACTION || 0.4)));
+      const allow = Math.floor(budget * share);
       const snap = await shadowSnapshot(convId);
       const mm = snap?.mismatches || [];
       if (Array.isArray(mm) && mm.length) {
@@ -159,9 +189,12 @@ export async function preTurnMemory({ convId, turn, model, userText }) {
   let injectTokens = 0;
   for (const s of snippets) {
     if (!s) continue;
-    const candidate = (out ? (out + '\n') : '') + s;
+    const candidate = (out ? out + '\n' : '') + s;
     const n = TokenCounter.estimate(candidate, { model: encoderModel });
-    if (n <= INJECT_BUDGET) { out = candidate; injectTokens = n; } else break;
+    if (n <= INJECT_BUDGET) {
+      out = candidate;
+      injectTokens = n;
+    } else break;
   }
 
   return { injectText: out, injectTokens };
@@ -180,21 +213,36 @@ export async function postTurnMemory({ convId, turn, model, userText, assistantT
     // naive: pick the most recent EF cue + last line of assistant as recap
     const ef = await getEF(convId);
     const cue = pickEpisodicCue(ef);
-    const lastLine = String(assistantText || '').trim().split('\n').slice(-1)[0]?.trim() || '';
-    const recapBase = [ cue ? renderEpisodicCue(cue) : '', lastLine ].filter(Boolean).join(' ');
+    const lastLine =
+      String(assistantText || '')
+        .trim()
+        .split('\n')
+        .slice(-1)[0]
+        ?.trim() || '';
+    const recapBase = [cue ? renderEpisodicCue(cue) : '', lastLine].filter(Boolean).join(' ');
     const recap = SafeText.clamp(SafeText.stripDangerous(recapBase), 200); // keep it tiny
     await setSTR(convId, recap, [Math.max(0, turn - SUMM_EVERY + 1), turn]);
   }
 
   // If important, store EF (track kept/pruned by diff)
-  let efKept = 0, efPruned = 0;
+  let efKept = 0,
+    efPruned = 0;
   const before = await getEF(convId);
   if (type && importance >= MIN_IMPORTANCE) {
-    await pushEF(convId, { t: type, who: 'user', txt: extractEFText(userText, assistantText), imp: importance, turn });
+    await pushEF(convId, {
+      t: type,
+      who: 'user',
+      txt: extractEFText(userText, assistantText),
+      imp: importance,
+      turn,
+    });
   }
   const after = await getEF(convId);
   efKept = after.items?.length || 0;
-  const expected = Math.min((before.items?.length || 0) + (type && importance >= MIN_IMPORTANCE ? 1 : 0), Number(process.env.MEMORY_EF_MAX_ITEMS || 64));
+  const expected = Math.min(
+    (before.items?.length || 0) + (type && importance >= MIN_IMPORTANCE ? 1 : 0),
+    Number(process.env.MEMORY_EF_MAX_ITEMS || 64)
+  );
   efPruned = Math.max(0, expected - efKept);
 
   // (Optional) evolve a single facet from assistantText (very naive seed)
@@ -207,12 +255,18 @@ export async function postTurnMemory({ convId, turn, model, userText, assistantT
     });
   }
 
-  return { ok: true, label_type: type || null, label_importance: importance || 0, ef_kept: efKept, ef_pruned: efPruned };
+  return {
+    ok: true,
+    label_type: type || null,
+    label_importance: importance || 0,
+    ef_kept: efKept,
+    ef_pruned: efPruned,
+  };
 }
 
 function extractEFText(userText, assistantText) {
-  const u = String(userText||'').trim();
-  const a = String(assistantText||'').trim();
+  const u = String(userText || '').trim();
+  const a = String(assistantText || '').trim();
   const pick = a || u;
   const base = SafeText.stripDangerous(pick);
   const out = SafeText.clamp(base, 140);
@@ -220,7 +274,7 @@ function extractEFText(userText, assistantText) {
   return out;
 }
 
-function guessFirstCharacterName(text='') {
+function guessFirstCharacterName(text = '') {
   // VERY naive: Titlecased token as a "name"
   const m = text.match(/\b([A-Z][a-z]{2,15})\b/);
   return m ? m[1] : null;

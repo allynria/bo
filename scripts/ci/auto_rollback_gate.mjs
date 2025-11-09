@@ -5,10 +5,15 @@ function fetchJson(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(url, { method: 'GET', headers }, (res) => {
       let text = '';
-      res.on('data', (c) => { text += c.toString(); });
+      res.on('data', (c) => {
+        text += c.toString();
+      });
       res.on('end', () => {
-        try { resolve({ status: res.statusCode, json: JSON.parse(text) }); }
-        catch (e) { resolve({ status: res.statusCode, json: null, text }); }
+        try {
+          resolve({ status: res.statusCode, json: JSON.parse(text) });
+        } catch (e) {
+          resolve({ status: res.statusCode, json: null, text });
+        }
       });
     });
     req.on('error', reject);
@@ -54,13 +59,18 @@ async function main() {
   const failures = [];
   if (nonJson > MAX_NON_JSON) failures.push(`non_json_log_total=${nonJson} > ${MAX_NON_JSON}`);
   if (fivexx > MAX_5XX) failures.push(`responses_total{status=500}=${fivexx} > ${MAX_5XX}`);
-  if (backpressure > MAX_BACKPRESSURE) failures.push(`rate_limited_total{reason=backpressure}=${backpressure} > ${MAX_BACKPRESSURE}`);
-  if (budgetDenied > MAX_BUDGET_DENIALS) failures.push(`budget_prevented_total=${budgetDenied} > ${MAX_BUDGET_DENIALS}`);
+  if (backpressure > MAX_BACKPRESSURE)
+    failures.push(`rate_limited_total{reason=backpressure}=${backpressure} > ${MAX_BACKPRESSURE}`);
+  if (budgetDenied > MAX_BUDGET_DENIALS)
+    failures.push(`budget_prevented_total=${budgetDenied} > ${MAX_BUDGET_DENIALS}`);
 
   // Optional soak/run gate for p99 regression
   if (process.env.RUN_SOAK === '1') {
     await new Promise((resolve) => {
-      const child = spawn(process.execPath, ['scripts/soak_budget_gate.mjs'], { env: process.env, stdio: ['ignore', 'inherit', 'inherit'] });
+      const child = spawn(process.execPath, ['scripts/soak_budget_gate.mjs'], {
+        env: process.env,
+        stdio: ['ignore', 'inherit', 'inherit'],
+      });
       child.on('exit', (code) => {
         if (code !== 0) failures.push('soak_budget_gate failed');
         resolve();
@@ -77,5 +87,7 @@ async function main() {
   console.log('AUTO_ROLLBACK_GATE_PASSED');
 }
 
-main().catch((e) => { console.error('AUTO_ROLLBACK_TRIGGER: script error', e); process.exit(1); });
-
+main().catch((e) => {
+  console.error('AUTO_ROLLBACK_TRIGGER: script error', e);
+  process.exit(1);
+});

@@ -14,10 +14,16 @@ const { logAt } = monolith;
 function captureConsole(method = 'info') {
   const orig = console[method];
   const calls = [];
-  console[method] = (...args) => { calls.push(args); };
+  console[method] = (...args) => {
+    calls.push(args);
+  };
   return {
-    restore() { console[method] = orig; },
-    getCalls() { return calls.map((a) => a.map((x) => String(x))); }
+    restore() {
+      console[method] = orig;
+    },
+    getCalls() {
+      return calls.map((a) => a.map((x) => String(x)));
+    },
   };
 }
 
@@ -34,7 +40,11 @@ test('logger: JSON output contains expected fields and truncates long msg', () =
   // JSON-only path emits a single JSON string line
   const line = calls[calls.length - 1][0];
   let entry;
-  try { entry = JSON.parse(line); } catch (e) { assert.fail('log line is not valid JSON: ' + String(line)); }
+  try {
+    entry = JSON.parse(line);
+  } catch (e) {
+    assert.fail('log line is not valid JSON: ' + String(line));
+  }
   assert.equal(typeof entry.ts, 'string');
   assert.equal(entry.lvl, 'INFO');
   assert.equal(typeof entry.msg, 'string');
@@ -55,9 +65,12 @@ test('logger: Bearer token is redacted in JSON message', () => {
   assert.equal(calls.length >= 1, true, 'expected at least one console.warn call');
   const line = calls[calls.length - 1][0];
   let entry;
-  try { entry = JSON.parse(line); } catch (e) { assert.fail('log line is not valid JSON: ' + String(line)); }
+  try {
+    entry = JSON.parse(line);
+  } catch (e) {
+    assert.fail('log line is not valid JSON: ' + String(line));
+  }
   assert.equal(entry.lvl, 'WARN');
   assert.ok(!/bearer\s+super\.secret\.token/i.test(entry.msg), 'raw bearer token must not appear');
   assert.ok(/Bearer \[REDACTED\]/.test(entry.msg), 'redacted placeholder should appear');
 });
-

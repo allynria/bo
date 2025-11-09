@@ -3,7 +3,7 @@ import { rng } from '../../monolith.js';
 export function isNearMiss({ roll, pFailPercent, band = 5 }) {
   // Fail threshold T in [1..100]; if roll is within band above threshold, it's a "barely success"
   const T = Math.round(pFailPercent);
-  return roll > T && (roll - T) <= band;
+  return roll > T && roll - T <= band;
 }
 
 export function buildComplicationBooster({ verb = 'attempt' }) {
@@ -14,9 +14,7 @@ export function buildComplicationBooster({ verb = 'attempt' }) {
     `(You push through—but a thread snags, a shoe scuffs: a small cost.)`,
     `(Close—too close. Success, shadowed by a minor setback.)`,
   ];
-  return (
-    table[Math.floor(rng() * table.length)] + ` (Complication after ${verb}.)`
-  );
+  return table[Math.floor(rng() * table.length)] + ` (Complication after ${verb}.)`;
 }
 
 export function applyBeatTensionDelta({ beat = 'rising', outcome = 'success' }) {
@@ -30,7 +28,7 @@ export function applyBeatTensionDelta({ beat = 'rising', outcome = 'success' }) 
     else if (beat === 'rising') delta = env('BEAT_DELTA_SUCCESS_RISING', -0.02);
   } else {
     if (beat === 'rising') delta = env('BEAT_DELTA_FAIL_RISING', 0.08);
-    else if (beat === 'climax') delta = env('BEAT_DELTA_FAIL_CLIMAX', 0.10);
+    else if (beat === 'climax') delta = env('BEAT_DELTA_FAIL_CLIMAX', 0.1);
     else if (beat === 'falling') delta = env('BEAT_DELTA_FAIL_FALLING', 0.04);
   }
   return delta;

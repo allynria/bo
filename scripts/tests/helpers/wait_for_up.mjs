@@ -13,7 +13,8 @@ export async function waitForUp(base, opts = {}) {
           // Consume and ignore body
           res.resume();
           res.on('end', () => {
-            if (res.statusCode === 200) resolve(); else reject(new Error(String(res.statusCode)));
+            if (res.statusCode === 200) resolve();
+            else reject(new Error(String(res.statusCode)));
           });
         });
         req.on('error', reject);
@@ -24,4 +25,3 @@ export async function waitForUp(base, opts = {}) {
   }
   throw new Error('service did not start');
 }
-

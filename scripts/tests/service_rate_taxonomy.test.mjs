@@ -9,21 +9,36 @@ function startService(env = {}) {
   const script = path.join(process.cwd(), 'scripts', 'service.js');
   const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
   let logs = '';
-  child.stdout.on('data', (d) => { logs += d.toString(); });
-  child.stderr.on('data', (d) => { logs += d.toString(); });
+  child.stdout.on('data', (d) => {
+    logs += d.toString();
+  });
+  child.stderr.on('data', (d) => {
+    logs += d.toString();
+  });
   return { child, getLogs: () => logs };
 }
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let data = '';
-      res.on('data', (d) => { data += d.toString(); });
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, headers: res.headers, json: JSON.parse(data || '{}') }); }
-        catch (e) { reject(e); }
-      });
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (d) => {
+          data += d.toString();
+        });
+        res.on('end', () => {
+          try {
+            resolve({
+              status: res.statusCode,
+              headers: res.headers,
+              json: JSON.parse(data || '{}'),
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
@@ -55,11 +70,16 @@ test('Service: 429 policy vs 503 backpressure taxonomy and metrics', async () =>
   assert.ok(r4.headers['retry-after']);
   const m1 = await fetchJson(`${base1}/metrics`);
   const counters1 = m1.json.counters || [];
-  const policy429Count = counters1.find((c) => c.name === 'rate_limited_total' && c.labels?.reason === 'policy')?.value || 0;
-  const resp429Count = counters1.find((c) => c.name === 'responses_total' && c.labels?.status === '429')?.value || 0;
+  const policy429Count =
+    counters1.find((c) => c.name === 'rate_limited_total' && c.labels?.reason === 'policy')
+      ?.value || 0;
+  const resp429Count =
+    counters1.find((c) => c.name === 'responses_total' && c.labels?.status === '429')?.value || 0;
   assert.equal(policy429Count, 2);
   assert.equal(resp429Count, 2);
-  try { child1.kill(); } catch {}
+  try {
+    child1.kill();
+  } catch {}
   await new Promise((r) => child1.on('exit', r));
 
   // Case 2: Backpressure produces 503 under load with Retry-After
@@ -82,10 +102,15 @@ test('Service: 429 policy vs 503 backpressure taxonomy and metrics', async () =>
   assert.ok(withRetryAfter.length >= 1, '503 responses should include Retry-After');
   const m2 = await fetchJson(`${base2}/metrics`);
   const counters2 = m2.json.counters || [];
-  const backpressureCount = counters2.find((c) => c.name === 'rate_limited_total' && c.labels?.reason === 'backpressure')?.value || 0;
-  const resp503Count = counters2.find((c) => c.name === 'responses_total' && c.labels?.status === '503')?.value || 0;
+  const backpressureCount =
+    counters2.find((c) => c.name === 'rate_limited_total' && c.labels?.reason === 'backpressure')
+      ?.value || 0;
+  const resp503Count =
+    counters2.find((c) => c.name === 'responses_total' && c.labels?.status === '503')?.value || 0;
   assert.ok(backpressureCount >= 1);
   assert.ok(resp503Count >= 1);
-  try { child2.kill(); } catch {}
+  try {
+    child2.kill();
+  } catch {}
   await new Promise((r) => child2.on('exit', r));
 });

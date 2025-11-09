@@ -37,7 +37,11 @@ export function registerInternalTools() {
     description: 'GET a URL with fail-closed allowlist',
     sandbox: true,
     budget_ms: budgetMs,
-    input_json_schema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+    input_json_schema: {
+      type: 'object',
+      properties: { url: { type: 'string' } },
+      required: ['url'],
+    },
     handler: (input) => {
       const url = SafeText.stripDangerous(String(input?.url || ''));
       return {
@@ -45,9 +49,9 @@ export function registerInternalTools() {
         args: { url },
         netAllowlist: hostLabelsFor(url),
         netTimeoutMs: Math.max(500, Number(process.env.TOOL_NET_TIMEOUT_MS || 3000)),
-        failClosed: true
+        failClosed: true,
       };
-    }
+    },
   });
 
   // POST JSON
@@ -56,7 +60,11 @@ export function registerInternalTools() {
     description: 'POST JSON body to a URL under allowlist',
     sandbox: true,
     budget_ms: budgetMs,
-    input_json_schema: { type: 'object', properties: { url: { type: 'string' }, body: { type: 'object' } }, required: ['url','body'] },
+    input_json_schema: {
+      type: 'object',
+      properties: { url: { type: 'string' }, body: { type: 'object' } },
+      required: ['url', 'body'],
+    },
     handler: (input) => {
       const url = SafeText.stripDangerous(String(input?.url || ''));
       const bodyJson = JSON.stringify(input?.body || {});
@@ -65,9 +73,9 @@ export function registerInternalTools() {
         args: { url, body_json: bodyJson },
         netAllowlist: hostLabelsFor(url),
         netTimeoutMs: Math.max(500, Number(process.env.TOOL_NET_TIMEOUT_MS || 3000)),
-        failClosed: true
+        failClosed: true,
       };
-    }
+    },
   });
 
   // READ JSON file (fail-closed to fsRoot)
@@ -76,16 +84,20 @@ export function registerInternalTools() {
     description: 'Read and parse a JSON file under an allowlisted directory',
     sandbox: true,
     budget_ms: budgetMs,
-    input_json_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+    input_json_schema: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+      required: ['path'],
+    },
     handler: (input) => {
       const p = SafeText.stripDangerous(String(input?.path || ''));
       return {
         op: 'read_json',
         args: { path: p },
         fsAllowlist: [fsRoot],
-        failClosed: true
+        failClosed: true,
       };
-    }
+    },
   });
 
   // WRITE file (base64 content) under fsRoot
@@ -94,7 +106,11 @@ export function registerInternalTools() {
     description: 'Write a file under an allowlisted directory from base64 content',
     sandbox: true,
     budget_ms: budgetMs,
-    input_json_schema: { type: 'object', properties: { path: { type: 'string' }, content_b64: { type: 'string' } }, required: ['path','content_b64'] },
+    input_json_schema: {
+      type: 'object',
+      properties: { path: { type: 'string' }, content_b64: { type: 'string' } },
+      required: ['path', 'content_b64'],
+    },
     handler: (input) => {
       const p = SafeText.stripDangerous(String(input?.path || ''));
       const content_b64 = String(input?.content_b64 || '');
@@ -102,9 +118,9 @@ export function registerInternalTools() {
         op: 'write_file',
         args: { path: p, content_b64 },
         fsAllowlist: [fsRoot],
-        failClosed: true
+        failClosed: true,
       };
-    }
+    },
   });
 
   // Network probe (HEAD)
@@ -113,7 +129,11 @@ export function registerInternalTools() {
     description: 'HEAD probe to a URL to check reachability',
     sandbox: true,
     budget_ms: budgetMs,
-    input_json_schema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+    input_json_schema: {
+      type: 'object',
+      properties: { url: { type: 'string' } },
+      required: ['url'],
+    },
     handler: (input) => {
       const url = SafeText.stripDangerous(String(input?.url || ''));
       return {
@@ -121,9 +141,9 @@ export function registerInternalTools() {
         args: { url },
         netAllowlist: hostLabelsFor(url),
         netTimeoutMs: Math.max(500, Number(process.env.TOOL_NET_TIMEOUT_MS || 3000)),
-        failClosed: true
+        failClosed: true,
       };
-    }
+    },
   });
 
   // Idempotent marker (write .done file) under provided directory
@@ -132,7 +152,11 @@ export function registerInternalTools() {
     description: 'Create an idempotent .done marker file under allowlisted directory',
     sandbox: true,
     budget_ms: budgetMs,
-    input_json_schema: { type: 'object', properties: { id: { type: 'string' }, dir: { type: 'string' } }, required: ['id','dir'] },
+    input_json_schema: {
+      type: 'object',
+      properties: { id: { type: 'string' }, dir: { type: 'string' } },
+      required: ['id', 'dir'],
+    },
     handler: (input) => {
       const id = SafeText.stripDangerous(String(input?.id || ''));
       const dir = SafeText.stripDangerous(String(input?.dir || ''));
@@ -140,9 +164,8 @@ export function registerInternalTools() {
         op: 'mark',
         args: { id, dir },
         fsAllowlist: [dir],
-        failClosed: true
+        failClosed: true,
       };
-    }
+    },
   });
 }
-

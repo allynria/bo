@@ -33,7 +33,7 @@ test('stale-lock recovery', async () => {
   const lockPath = path.join(dir, 'stale.lock');
   // Seed a stale lock file with old timestamp
   const staleTs = Date.now() - 10_000; // 10 seconds ago
-  await fsp.writeFile(lockPath, JSON.stringify({ pid: 9999, ts: staleTs }) + "\n", 'utf8');
+  await fsp.writeFile(lockPath, JSON.stringify({ pid: 9999, ts: staleTs }) + '\n', 'utf8');
   const release = await __acquireLock__(lockPath, { timeoutMs: 500, staleMs: 1000 });
   assert.ok(typeof release === 'function');
   await release();
@@ -77,4 +77,3 @@ test('stderr formatting includes trailing newline', async () => {
     process.stderr.write = orig;
   }
 });
-

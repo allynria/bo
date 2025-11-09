@@ -60,7 +60,10 @@ test('GC emits runs and deleted metrics when removing stale RL files', async () 
   // Wait for at least one GC run (interval >= 5s)
   await new Promise((r) => setTimeout(r, 6000));
 
-  const existsAfter = await fsp.stat(filePath).then(() => true).catch(() => false);
+  const existsAfter = await fsp
+    .stat(filePath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(existsAfter, false, 'stale RL file should be deleted by GC');
 
   // Metrics assertions
@@ -77,10 +80,13 @@ test('GC emits runs and deleted metrics when removing stale RL files', async () 
   assert.ok(deletedTotal >= 1, 'GC deleted total should be >= 1');
 
   // Cleanup
-  try { await fsp.rm(tmpBase, { recursive: true, force: true }); } catch {}
+  try {
+    await fsp.rm(tmpBase, { recursive: true, force: true });
+  } catch {}
 
   // Restore env
   for (const [k, v] of Object.entries(origEnv)) {
-    if (v != null) process.env[k] = v; else delete process.env[k];
+    if (v != null) process.env[k] = v;
+    else delete process.env[k];
   }
 });

@@ -10,7 +10,7 @@ const RE = {
   trigger: /\b(trigger|flinch|panic|afraid|fear)\b/i,
   location: /\b(bridge|harbor|orphanage|forest|inn|castle|train)\b/i,
 };
-const ORDER = ['confession','promise','secret','death','injury','trigger','location'];
+const ORDER = ['confession', 'promise', 'secret', 'death', 'injury', 'trigger', 'location'];
 
 export function labelExchange(userText = '', assistantText = '') {
   const chunk = `${userText}\n${assistantText}`.slice(0, 2000);
@@ -20,4 +20,3 @@ export function labelExchange(userText = '', assistantText = '') {
   const type = found[0] || (chunk.length > 40 ? 'other' : null);
   return { type, importance: type ? imp : 0, who: 'user' };
 }
-

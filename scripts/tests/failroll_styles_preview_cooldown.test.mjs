@@ -27,11 +27,13 @@ function start(port, env = {}) {
 
 function get(base, path) {
   return new Promise((resolve, reject) => {
-    http.get(`${base}${path}`, (res) => {
-      let d = '';
-      res.on('data', (c) => (d += c));
-      res.on('end', () => resolve({ code: res.statusCode, body: d }));
-    }).on('error', reject);
+    http
+      .get(`${base}${path}`, (res) => {
+        let d = '';
+        res.on('data', (c) => (d += c));
+        res.on('end', () => resolve({ code: res.statusCode, body: d }));
+      })
+      .on('error', reject);
   });
 }
 
@@ -42,7 +44,10 @@ function get(base, path) {
   await waitForUp(base, { timeout: 3000 });
 
   // 1) Preview endpoint sanity
-  const p1 = await get(base, '/admin/failroll/preview?token=adm&conv_id=t1&text=I try to sneak behind the guard&turn=0');
+  const p1 = await get(
+    base,
+    '/admin/failroll/preview?token=adm&conv_id=t1&text=I try to sneak behind the guard&turn=0'
+  );
   assert.equal(p1.code, 200);
   const j1 = JSON.parse(p1.body);
   assert.equal(j1.ok, true);
@@ -50,25 +55,33 @@ function get(base, path) {
   assert.equal(['stealth', 'social', 'physical', 'generic'].includes(j1.styleClass), true);
 
   // 2) Cooldown penalty kicks in after first use
-  const p2 = await get(base, '/admin/failroll/preview?token=adm&conv_id=t2&text=I try to charm the warden&turn=0');
+  const p2 = await get(
+    base,
+    '/admin/failroll/preview?token=adm&conv_id=t2&text=I try to charm the warden&turn=0'
+  );
   const a2 = JSON.parse(p2.body);
   // mark usage via stream call (starts cooldown)
   const sse = await new Promise((resolve, reject) => {
-    http.get(
-      `${base}/conv/stream?conv_id=t2&engine=urga&turn=0&text=${encodeURIComponent('I try to charm the warden')}`,
-      { headers: { accept: 'text/event-stream', authorization: 'Bearer test-token' } },
-      (res) => {
-        let b = '';
-        res.on('data', (c) => {
-          b += c.toString('utf8');
-          if (b.includes('failroll.eval')) resolve(b);
-        });
-      }
-    ).on('error', reject);
+    http
+      .get(
+        `${base}/conv/stream?conv_id=t2&engine=urga&turn=0&text=${encodeURIComponent('I try to charm the warden')}`,
+        { headers: { accept: 'text/event-stream', authorization: 'Bearer test-token' } },
+        (res) => {
+          let b = '';
+          res.on('data', (c) => {
+            b += c.toString('utf8');
+            if (b.includes('failroll.eval')) resolve(b);
+          });
+        }
+      )
+      .on('error', reject);
   });
   assert.ok(sse.includes('failroll.eval'));
   // preview again; expect higher threshold due to cooldownPenalty
-  const p3 = await get(base, '/admin/failroll/preview?token=adm&conv_id=t2&text=I try to charm the warden&turn=1');
+  const p3 = await get(
+    base,
+    '/admin/failroll/preview?token=adm&conv_id=t2&text=I try to charm the warden&turn=1'
+  );
   const a3 = JSON.parse(p3.body);
   // threshold correlates with pFail; allow a tiny epsilon
   assert.ok(a3.threshold >= a2.threshold, 'cooldown should not lower failure threshold');

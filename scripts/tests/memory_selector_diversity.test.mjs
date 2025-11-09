@@ -10,10 +10,10 @@ const items = [
 ];
 
 const pickedCold = selectWithDiversity(items, { k: 3, alpha: 0.6, temperature: 0.3 });
-const pickedHot  = selectWithDiversity(items, { k: 3, alpha: 0.6, temperature: 1.2 });
+const pickedHot = selectWithDiversity(items, { k: 3, alpha: 0.6, temperature: 1.2 });
 
 assert.ok(pickedCold.length === 3 && pickedHot.length === 3);
 // Cheap check: diversity should avoid picking both apple orchard items together frequently.
-const hasTwoApples = (arr) => arr.filter(x => (x.txt||'').includes('apple')).length >= 2;
+const hasTwoApples = (arr) => arr.filter((x) => (x.txt || '').includes('apple')).length >= 2;
 // With diversity, the probability of both apple* being present is low; assert at least one run avoids it.
 assert.ok(!hasTwoApples(pickedCold), 'diversity failed to separate similar items');

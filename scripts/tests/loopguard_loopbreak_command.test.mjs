@@ -31,12 +31,15 @@ function startService(env = {}) {
 async function waitForUp(port, path = '/healthz', timeoutMs = 4000, intervalMs = 100) {
   const t0 = Date.now();
   let lastErr = null;
-  while ((Date.now() - t0) < timeoutMs) {
+  while (Date.now() - t0 < timeoutMs) {
     try {
       await new Promise((resolve, reject) => {
-        http.get({ hostname: '127.0.0.1', port, path }, (res) => {
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 500) resolve(); else reject(new Error('bad_status'));
-        }).on('error', reject);
+        http
+          .get({ hostname: '127.0.0.1', port, path }, (res) => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 500) resolve();
+            else reject(new Error('bad_status'));
+          })
+          .on('error', reject);
       });
       return true;
     } catch (e) {
@@ -58,8 +61,8 @@ async function postJSON(port, path, body, { auth, origin }) {
     headers: {
       'content-type': 'application/json',
       'content-length': Buffer.byteLength(data),
-      'authorization': `Bearer ${auth}`,
-      'origin': origin,
+      authorization: `Bearer ${auth}`,
+      origin: origin,
     },
   };
   return new Promise((resolve, reject) => {
@@ -68,7 +71,9 @@ async function postJSON(port, path, body, { auth, origin }) {
       res.on('data', (d) => (buf += d));
       res.on('end', () => {
         let json = {};
-        try { json = JSON.parse(buf || '{}'); } catch {}
+        try {
+          json = JSON.parse(buf || '{}');
+        } catch {}
         resolve({ status: res.statusCode, json });
       });
     });
@@ -80,34 +85,57 @@ async function postJSON(port, path, body, { auth, origin }) {
 
 async function getMetrics(port) {
   return new Promise((resolve, reject) => {
-    http.get({ hostname: '127.0.0.1', port, path: '/metrics' }, (res) => {
-      let buf = '';
-      res.on('data', (d) => (buf += d));
-      res.on('end', () => {
-        let json = { counters: [] };
-        try { json = JSON.parse(buf || '{"counters":[]}'); } catch {}
-        resolve(json);
-      });
-    }).on('error', reject);
+    http
+      .get({ hostname: '127.0.0.1', port, path: '/metrics' }, (res) => {
+        let buf = '';
+        res.on('data', (d) => (buf += d));
+        res.on('end', () => {
+          let json = { counters: [] };
+          try {
+            json = JSON.parse(buf || '{"counters":[]}');
+          } catch {}
+          resolve(json);
+        });
+      })
+      .on('error', reject);
   });
 }
 
 test('LoopBreak command increments metric on v1 message path', async (t) => {
   const { child, auth, origin, port } = startService();
-  t.after(() => { try { child.kill('SIGINT'); } catch {} });
+  t.after(() => {
+    try {
+      child.kill('SIGINT');
+    } catch {}
+  });
   await waitForUp(port);
 
   const conv = 'loopbreak-demo';
   // Enable turbo for 2 turns
-  const a = await postJSON(port, '/v1/conv/message', { conv_id: conv, text: '!loopbreak 2', engine: 'urga', turn: 0 }, { auth, origin });
+  const a = await postJSON(
+    port,
+    '/v1/conv/message',
+    { conv_id: conv, text: '!loopbreak 2', engine: 'urga', turn: 0 },
+    { auth, origin }
+  );
   assert.equal(a.status, 200);
 
   // Two normal messages
-  await postJSON(port, '/v1/conv/message', { conv_id: conv, text: 'She smiles softly and nods.', engine: 'urga', turn: 1 }, { auth, origin });
-  await postJSON(port, '/v1/conv/message', { conv_id: conv, text: 'She smiles softly again.', engine: 'urga', turn: 2 }, { auth, origin });
+  await postJSON(
+    port,
+    '/v1/conv/message',
+    { conv_id: conv, text: 'She smiles softly and nods.', engine: 'urga', turn: 1 },
+    { auth, origin }
+  );
+  await postJSON(
+    port,
+    '/v1/conv/message',
+    { conv_id: conv, text: 'She smiles softly again.', engine: 'urga', turn: 2 },
+    { auth, origin }
+  );
 
   const m = await getMetrics(port);
-  const seen = Array.isArray(m?.counters) && m.counters.some((c) => c?.name === 'loopguard_loopbreak_total');
+  const seen =
+    Array.isArray(m?.counters) && m.counters.some((c) => c?.name === 'loopguard_loopbreak_total');
   assert.equal(seen, true, 'expected loopguard_loopbreak_total metric');
 });
-

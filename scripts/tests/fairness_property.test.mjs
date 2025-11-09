@@ -11,11 +11,17 @@ import { createSharedRateLimiter, createInMemoryRateLimitBackend } from '../../m
 test('Fairness & skew property across randomized schedules', async () => {
   const windowMs = 200; // small window to keep runtime fast
   const limit = 7;
-  const rl = createSharedRateLimiter({ windowMs, limit, backend: createInMemoryRateLimitBackend({}) });
+  const rl = createSharedRateLimiter({
+    windowMs,
+    limit,
+    backend: createInMemoryRateLimitBackend({}),
+  });
   const RL_MAX_SKEW_MS = Number(process.env.RL_MAX_SKEW_MS || 250);
 
   const schedules = Number(process.env.N_SCHEDULES || 1000); // scale via env to 10000 if needed
-  function alignAnchor(now) { return Math.floor(now / windowMs) * windowMs; }
+  function alignAnchor(now) {
+    return Math.floor(now / windowMs) * windowMs;
+  }
 
   for (let i = 0; i < schedules; i++) {
     const workers = Math.floor(3 + Math.random() * 3); // 3–5 workers
@@ -26,7 +32,9 @@ test('Fairness & skew property across randomized schedules', async () => {
     // Boundary-aligned starts, each call will use anchor + skew + small offset
     const calls = limit + 5; // exceed limit to force rate_limited outcomes
 
-    let ok = 0, rate = 0, internal = 0;
+    let ok = 0,
+      rate = 0,
+      internal = 0;
     for (let c = 0; c < calls; c++) {
       const workerId = Math.floor(Math.random() * workers);
       const skew = Math.floor((Math.random() * 2 - 1) * RL_MAX_SKEW_MS);

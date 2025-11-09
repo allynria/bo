@@ -8,12 +8,12 @@ test('provider-bound prompt is scrubbed for PII', async () => {
     async generate({ prompt }) {
       lastPrompt = String(prompt || '');
       return 'ok';
-    }
+    },
   };
   const ctx = {
     providers: { llm: capturingProvider },
     vars: {},
-    io: {}
+    io: {},
   };
   const adapter = new ModelAdapter(ctx);
   const input = 'Please email me at test@example.com or call 415-555-1234.';
@@ -24,4 +24,3 @@ test('provider-bound prompt is scrubbed for PII', async () => {
   assert.ok(lastPrompt.includes('[EMAIL]'), 'redaction marker for email should appear');
   assert.ok(lastPrompt.includes('[PHONE]'), 'redaction marker for phone should appear');
 });
-

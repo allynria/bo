@@ -20,4 +20,3 @@ jobs:
         run: npm ci
       - name: Run contract gate
         run: npm run ci:contract
-

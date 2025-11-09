@@ -12,11 +12,15 @@ function installTracerStub() {
       const span = {
         name,
         attributes: attr,
-        setAttribute(k, v) { attr[k] = v; },
-        end() { spans.push({ name, attributes: { ...attr } }); }
+        setAttribute(k, v) {
+          attr[k] = v;
+        },
+        end() {
+          spans.push({ name, attributes: { ...attr } });
+        },
       };
       return span;
-    }
+    },
   };
   globalThis.__OTEL_TRACER__ = tracer;
   globalThis.__SPAN_LOG__ = spans;
@@ -25,7 +29,9 @@ function installTracerStub() {
 
 function setRid(rid = 'rid-test') {
   globalThis.__RID_STORE__ = {
-    getStore() { return { rid }; }
+    getStore() {
+      return { rid };
+    },
   };
 }
 
@@ -71,10 +77,16 @@ test('OTEL FS tail-slow: readFile emits tail span when head off', async () => {
 
   const origNow = Date.now;
   let calls = 0;
-  Date.now = () => { const v = origNow(); calls++; return calls === 1 ? v : v + 5; };
+  Date.now = () => {
+    const v = origNow();
+    calls++;
+    return calls === 1 ? v : v + 5;
+  };
   try {
     await AsyncFS.readFile(p, 'utf8');
-  } finally { Date.now = origNow; }
+  } finally {
+    Date.now = origNow;
+  }
   const s = spans.filter((x) => x.name === 'fs.readFile.tail').pop();
   assert.ok(s, 'fs.readFile.tail span should be emitted');
   assert.equal(s.attributes.request_id, 'rid-fs-tail');
@@ -117,7 +129,10 @@ test('OTEL Handler head sampling: wrapChatHandler emits span with request_id', a
   const s = spans.filter((x) => x.name === 'wrapChatHandler').pop();
   assert.ok(s, 'wrapChatHandler span should be emitted');
   assert.equal(s.attributes.request_id, 'rid-handler-head');
-  assert.ok(Number.isFinite(Number(s.attributes['handler.dur_ms'])), 'handler.dur_ms should be set');
+  assert.ok(
+    Number.isFinite(Number(s.attributes['handler.dur_ms'])),
+    'handler.dur_ms should be set'
+  );
 });
 
 // Tail-slow handler
@@ -132,14 +147,23 @@ test('OTEL Handler tail-slow: wrapChatHandler emits tail span when head off', as
   const handler = wrapChatHandler(async (input) => `echo:${input}`);
   const origNow = Date.now;
   let calls = 0;
-  Date.now = () => { const v = origNow(); calls++; return calls === 1 ? v : v + 5; };
+  Date.now = () => {
+    const v = origNow();
+    calls++;
+    return calls === 1 ? v : v + 5;
+  };
   let out;
   try {
     out = await handler('hi');
-  } finally { Date.now = origNow; }
+  } finally {
+    Date.now = origNow;
+  }
   assert.equal(out, 'echo:hi');
   const s = spans.filter((x) => x.name === 'wrapChatHandler.tail').pop();
   assert.ok(s, 'wrapChatHandler.tail span should be emitted');
   assert.equal(s.attributes.request_id, 'rid-handler-tail');
-  assert.ok(Number.isFinite(Number(s.attributes['handler.dur_ms'])), 'handler.dur_ms should be set');
+  assert.ok(
+    Number.isFinite(Number(s.attributes['handler.dur_ms'])),
+    'handler.dur_ms should be set'
+  );
 });

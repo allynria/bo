@@ -13,17 +13,27 @@ function startService(env = {}) {
 
 function postJson(url, body, headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers } }, (res) => {
-      let data = '';
-      res.on('data', (c) => { data += c.toString(); });
-      res.on('end', () => {
-        let j = {};
-        try { j = JSON.parse(data); } catch {}
-        resolve({ status: res.statusCode, json: j, headers: res.headers });
-      });
-    });
+    const req = http.request(
+      url,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers } },
+      (res) => {
+        let data = '';
+        res.on('data', (c) => {
+          data += c.toString();
+        });
+        res.on('end', () => {
+          let j = {};
+          try {
+            j = JSON.parse(data);
+          } catch {}
+          resolve({ status: res.statusCode, json: j, headers: res.headers });
+        });
+      }
+    );
     req.on('error', reject);
-    try { req.write(JSON.stringify(body || {})); } catch {}
+    try {
+      req.write(JSON.stringify(body || {}));
+    } catch {}
     req.end();
   });
 }
@@ -32,7 +42,9 @@ function fetchNdjson(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(url, { method: 'GET', headers }, (res) => {
       let body = '';
-      res.on('data', (c) => { body += c.toString(); });
+      res.on('data', (c) => {
+        body += c.toString();
+      });
       res.on('end', () => {
         resolve({ status: res.statusCode, body, headers: res.headers });
       });
@@ -45,13 +57,25 @@ function fetchNdjson(url, headers = {}) {
 test('billing export endpoint streams signed NDJSON with resume token', async () => {
   const port = 3900 + Math.floor(Math.random() * 500);
   const token = 'admintoken';
-  const child = startService({ NODE_ENV: 'production', LOG_JSON: '1', PORT: String(port), ADMIN_TOKEN: token, USAGE_HMAC_SECRET: 'billing-secret', LLM_TEST_STUBS: '1', URGA_PROVIDER: 'stub-urga' });
+  const child = startService({
+    NODE_ENV: 'production',
+    LOG_JSON: '1',
+    PORT: String(port),
+    ADMIN_TOKEN: token,
+    USAGE_HMAC_SECRET: 'billing-secret',
+    LLM_TEST_STUBS: '1',
+    URGA_PROVIDER: 'stub-urga',
+  });
   const base = `http://localhost:${port}`;
   await waitForUp(base, { timeout: 3000 });
 
   // Trigger a simple message call to produce llm_cost metrics (stub provider)
   const tenant = 'test-tenant';
-  const msg = await postJson(`${base}/message`, { message: { role: 'user', content: 'hello' }, ctx: { vars: { tenant } } }, { 'x-tenant': tenant });
+  const msg = await postJson(
+    `${base}/message`,
+    { message: { role: 'user', content: 'hello' }, ctx: { vars: { tenant } } },
+    { 'x-tenant': tenant }
+  );
   assert.equal(msg.status, 200);
 
   // Export usage ledger
@@ -69,7 +93,8 @@ test('billing export endpoint streams signed NDJSON with resume token', async ()
   assert.equal(typeof ndj.headers['x-resume-token'], 'string');
   assert.equal(typeof ndj.headers['x-checksum'], 'string');
 
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });
-

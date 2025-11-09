@@ -7,22 +7,32 @@ async function probeRecovery({ url, timeoutMin = 5, backoffMs = 1000, authToken 
   if (!url) throw new Error('RECOVERY_URL is required');
   const deadline = Date.now() + Math.max(60_000, timeoutMin * 60_000);
   const client = url.startsWith('https:') ? https : http;
-  let lastErr = null; let attempts = 0;
+  let lastErr = null;
+  let attempts = 0;
   while (Date.now() < deadline) {
     attempts++;
     const ok = await new Promise((resolve) => {
       const u = new URL(url);
-      const req = client.request({ method: 'GET', hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + (u.search || ''), headers: authToken ? { authorization: `Bearer ${authToken}` } : {} }, (res) => {
-        // Accept 200 as healthy; optionally allow 503 to transition
-        const healthy = res.statusCode === 200;
-        res.resume();
-        resolve(healthy);
-      });
+      const req = client.request(
+        {
+          method: 'GET',
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname + (u.search || ''),
+          headers: authToken ? { authorization: `Bearer ${authToken}` } : {},
+        },
+        (res) => {
+          // Accept 200 as healthy; optionally allow 503 to transition
+          const healthy = res.statusCode === 200;
+          res.resume();
+          resolve(healthy);
+        }
+      );
       req.on('error', () => resolve(false));
       req.end();
     });
     if (ok) {
-      const elapsed = (Date.now() + backoffMs) - (deadline - Math.max(60_000, timeoutMin * 60_000));
+      const elapsed = Date.now() + backoffMs - (deadline - Math.max(60_000, timeoutMin * 60_000));
       console.log(`RECOVERY_OK in ~${elapsed}ms after ${attempts} attempts`);
       return true;
     }
@@ -48,11 +58,23 @@ async function triggerRollback() {
     await new Promise((resolve, reject) => {
       const u = new URL(url);
       const client = u.protocol === 'https:' ? https : http;
-      const req = client.request({ method: 'POST', hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + (u.search || ''), headers: { 'Content-Type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) } }, (res) => {
-        res.resume();
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve();
-        else reject(new Error(`webhook rollback failed with status ${res.statusCode}`));
-      });
+      const req = client.request(
+        {
+          method: 'POST',
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname + (u.search || ''),
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { authorization: `Bearer ${token}` } : {}),
+          },
+        },
+        (res) => {
+          res.resume();
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve();
+          else reject(new Error(`webhook rollback failed with status ${res.statusCode}`));
+        }
+      );
       req.on('error', reject);
       req.write(payload);
       req.end();
@@ -95,14 +117,23 @@ async function triggerRollback() {
 }
 
 async function main() {
-  const ok = await triggerRollback().catch((e) => { console.error('ROLLBACK_TRIGGER_ERROR', e && e.stack || e); return false; });
+  const ok = await triggerRollback().catch((e) => {
+    console.error('ROLLBACK_TRIGGER_ERROR', (e && e.stack) || e);
+    return false;
+  });
   if (!ok) process.exit(2);
   const url = String(process.env.RECOVERY_URL || '');
   const timeoutMin = Number(process.env.RECOVERY_TIMEOUT_MINUTES || 5);
   const backoffMs = Number(process.env.RECOVERY_BACKOFF_MS || 1000);
   const authToken = String(process.env.RECOVERY_AUTH_TOKEN || '');
-  const recovered = await probeRecovery({ url, timeoutMin, backoffMs, authToken }).catch((e) => { console.error('RECOVERY_PROBE_ERROR', e && e.stack || e); return false; });
+  const recovered = await probeRecovery({ url, timeoutMin, backoffMs, authToken }).catch((e) => {
+    console.error('RECOVERY_PROBE_ERROR', (e && e.stack) || e);
+    return false;
+  });
   if (!recovered) process.exit(1);
 }
 
-main().catch((e) => { console.error('ROLLBACK_ERROR', e); process.exit(1); });
+main().catch((e) => {
+  console.error('ROLLBACK_ERROR', e);
+  process.exit(1);
+});

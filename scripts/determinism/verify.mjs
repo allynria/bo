@@ -9,8 +9,12 @@ function startService(env = {}) {
   const script = path.join(process.cwd(), 'scripts', 'service.js');
   const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
   let logs = '';
-  child.stdout.on('data', (d) => { logs += d.toString(); });
-  child.stderr.on('data', (d) => { logs += d.toString(); });
+  child.stdout.on('data', (d) => {
+    logs += d.toString();
+  });
+  child.stderr.on('data', (d) => {
+    logs += d.toString();
+  });
   return { child, getLogs: () => logs };
 }
 
@@ -20,10 +24,14 @@ function postJson(url, body, headers = {}) {
     const req = http.request(url, { method: 'POST', headers: h }, (res) => {
       let text = '';
       res.setEncoding('utf8');
-      res.on('data', (c) => { text += c; });
+      res.on('data', (c) => {
+        text += c;
+      });
       res.on('end', () => {
         let json = null;
-        try { json = JSON.parse(text); } catch {}
+        try {
+          json = JSON.parse(text);
+        } catch {}
         resolve({ status: res.statusCode, text, json });
       });
     });
@@ -53,7 +61,12 @@ function getStream(url, headers = {}) {
             else if (line.startsWith('data:')) data += line.slice(5).trim();
           }
           if (evt === 'end') {
-            try { const j = JSON.parse(data); final = j?.final ?? j; } catch { final = data; }
+            try {
+              const j = JSON.parse(data);
+              final = j?.final ?? j;
+            } catch {
+              final = data;
+            }
           }
         }
       });
@@ -90,25 +103,33 @@ async function main() {
     CORS_ALLOWLIST: 'http://allowed.test',
     // Disable replay window so we can use ts=0 for stable hashing
     REPLAY_WINDOW_MS: '0',
-    REPLAY_SKEW_TOLERANCE_MS: '2500'
+    REPLAY_SKEW_TOLERANCE_MS: '2500',
   };
   const { child, getLogs } = startService(env);
   await waitForUp(base, { timeout: 8000 }).catch(async () => {
-    try { child.kill('SIGTERM'); } catch {}
+    try {
+      child.kill('SIGTERM');
+    } catch {}
     fail('Service did not become ready. Logs:\n' + getLogs());
   });
 
   const goldenPath = path.join(process.cwd(), 'scripts', 'determinism', 'golden_snapshots.json');
   let golden;
-  try { golden = JSON.parse(fs.readFileSync(goldenPath, 'utf8')); } catch (e) {
+  try {
+    golden = JSON.parse(fs.readFileSync(goldenPath, 'utf8'));
+  } catch (e) {
     fail('Failed to read golden snapshots: ' + e.message);
-    try { child.kill('SIGTERM'); } catch {}
+    try {
+      child.kill('SIGTERM');
+    } catch {}
     return;
   }
   const convs = Array.isArray(golden?.convs) ? golden.convs : [];
   if (convs.length === 0) {
     fail('No canonical conversations found in golden_snapshots.json');
-    try { child.kill('SIGTERM'); } catch {}
+    try {
+      child.kill('SIGTERM');
+    } catch {}
     return;
   }
 
@@ -120,8 +141,15 @@ async function main() {
     const origin = 'http://allowed.test';
 
     // Compile
-    const compReq = { messages: [{ role: 'user', content: [text], turn: 0 }], ...(persona_v ? { persona_v } : {}), ...(prompt_v ? { prompt_v } : {}) };
-    const comp = await postJson(`${base}/conv/compile`, compReq, { origin, authorization: `Bearer ${token}` });
+    const compReq = {
+      messages: [{ role: 'user', content: [text], turn: 0 }],
+      ...(persona_v ? { persona_v } : {}),
+      ...(prompt_v ? { prompt_v } : {}),
+    };
+    const comp = await postJson(`${base}/conv/compile`, compReq, {
+      origin,
+      authorization: `Bearer ${token}`,
+    });
     if (comp.status !== 200) {
       fail(`[${name}] compile failed status=${comp.status} body=${comp.text}`);
       break;
@@ -138,17 +166,35 @@ async function main() {
     // Message
     // Match service-side hashing defaults: conv_id='conv', id='conv:0:user', ts=0
     // Use unique conv_id per case to avoid per-conversation soft rate limits; keep stable id/turn/ts
-    const msgReq = { text, conv_id: `conv-${name}`, id: 'conv:0:user', turn: 0, ts, engine, ...(persona_v ? { persona_v } : {}), ...(prompt_v ? { prompt_v } : {}) };
-    const msg = await postJson(`${base}/conv/message`, msgReq, { origin, authorization: `Bearer ${token}` });
+    const msgReq = {
+      text,
+      conv_id: `conv-${name}`,
+      id: 'conv:0:user',
+      turn: 0,
+      ts,
+      engine,
+      ...(persona_v ? { persona_v } : {}),
+      ...(prompt_v ? { prompt_v } : {}),
+    };
+    const msg = await postJson(`${base}/conv/message`, msgReq, {
+      origin,
+      authorization: `Bearer ${token}`,
+    });
     if (msg.status !== 200) {
       fail(`[${name}] message failed status=${msg.status} body=${msg.text}`);
       break;
     }
     if (msg.json?.hash !== expMessage?.hash) {
-      fail(`[${name}] message hash drift on turn 0: expected=${expMessage?.hash} actual=${msg.json?.hash}`);
+      fail(
+        `[${name}] message hash drift on turn 0: expected=${expMessage?.hash} actual=${msg.json?.hash}`
+      );
       break;
     }
-    if (msg.json?.bytes_b64 && expMessage?.bytes_b64 && msg.json.bytes_b64 !== expMessage.bytes_b64) {
+    if (
+      msg.json?.bytes_b64 &&
+      expMessage?.bytes_b64 &&
+      msg.json.bytes_b64 !== expMessage.bytes_b64
+    ) {
       fail(`[${name}] message bytes drift on turn 0`);
       break;
     }
@@ -156,18 +202,25 @@ async function main() {
     // Stream
     // Use a unique conv_id per case to avoid idempotent replay collisions
     const q = `text=${encodeURIComponent(text)}&conv_id=${encodeURIComponent(`conv-${name}`)}&turn=0&engine=${encodeURIComponent(engine)}&ts=${ts}`;
-    const stream = await getStream(`${base}/conv/stream?${q}`, { origin, authorization: `Bearer ${token}` });
+    const stream = await getStream(`${base}/conv/stream?${q}`, {
+      origin,
+      authorization: `Bearer ${token}`,
+    });
     if (stream.status !== 200) {
       fail(`[${name}] stream failed status=${stream.status}`);
       break;
     }
     if (stream.final !== expStream?.final) {
-      fail(`[${name}] stream final drift on turn 0: expected=${expStream?.final} actual=${stream.final}`);
+      fail(
+        `[${name}] stream final drift on turn 0: expected=${expStream?.final} actual=${stream.final}`
+      );
       break;
     }
   }
 
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 
   if (process.exitCode && process.exitCode !== 0) {
@@ -178,4 +231,6 @@ async function main() {
   process.stdout.write('Determinism verification PASSED for all golden transcripts.\n');
 }
 
-main().catch((e) => { fail(e?.stack || e?.message || String(e)); });
+main().catch((e) => {
+  fail(e?.stack || e?.message || String(e));
+});

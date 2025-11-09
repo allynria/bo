@@ -1,67 +1,81 @@
-<!-- Constraint Panel --> 
- <section class="card"> 
-   <h3>Constraint Watch</h3> 
-   <div class="row"> 
-     <div><b>Total (5m)</b></div> 
-     <div id="constraint-total">–</div> 
-   </div> 
-   <div class="row"> 
-     <div>Breakdown</div> 
-     <div> 
-       <table id="constraint-table" class="mini"> 
-         <thead><tr><th>class</th><th>reason</th><th>path</th><th>via</th><th>count</th></tr></thead> 
-         <tbody></tbody> 
-       </table> 
-     </div> 
-   </div> 
- 
-   <h4>Live events</h4> 
-   <div id="constraint-log" class="log"></div> 
- </section> 
- 
- <script type="module"> 
- const $ = (sel) => document.querySelector(sel); 
- const tBody = $('#constraint-table tbody'); 
- const totalEl = $('#constraint-total'); 
- const logEl = $('#constraint-log'); 
- 
- async function refreshCounters() { 
-   const r = await fetch('/metrics', { headers: window.metricsAuth ? { authorization: `Bearer ${window.metricsAuth}` } : {} }); 
-   const { counters } = await r.json(); 
-   const rows = counters.filter(c => c.name === 'constraint_violations_total'); 
- 
-   // 5-minute-ish sum if your /metrics already exposes cumulative; otherwise just display raw 
-   const total = rows.reduce((a, x) => a + (Number(x.value)||0), 0); 
-   totalEl.textContent = String(total); 
- 
-   tBody.innerHTML = ''; 
-   rows.forEach(x => { 
-     const tr = document.createElement('tr'); 
-     tr.innerHTML = `<td>${x.labels.class||''}</td> 
-                     <td>${x.labels.reason||''}</td> 
-                     <td>${x.labels.path||''}</td> 
-                     <td>${x.labels.via||''}</td> 
-                     <td style="text-align:right">${x.value}</td>`; 
-     tBody.appendChild(tr); 
-   }); 
- } 
- 
- function pushLog(ev){ 
-   const pre = document.createElement('div'); 
-   pre.className = 'logline'; 
-   pre.textContent = `[${new Date().toLocaleTimeString()}] ${ev.event} ${JSON.stringify(ev.data)}`; 
-   logEl.prepend(pre); 
-   while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild); 
- } 
- 
- function listenSSE(){ 
-   const es = new EventSource('/conv/stream?conv_id=__admin_watch__&text=__noop__&engine=echo&replay=1', { withCredentials:false }); 
-   es.addEventListener('memory.constraint', (e) => pushLog({ event: 'memory.constraint', data: JSON.parse(e.data) })); 
-   es.onerror = () => es.close(); // best-effort 
- } 
- setInterval(refreshCounters, 3000); 
- refreshCounters(); 
- listenSSE(); 
- </script> 
- This piggybacks your existing /metrics and SSE taxonomy. 
+<!-- Constraint Panel -->
+<section class="card">
+  <h3>Constraint Watch</h3>
+  <div class="row">
+    <div><b>Total (5m)</b></div>
+    <div id="constraint-total">–</div>
+  </div>
+  <div class="row">
+    <div>Breakdown</div>
+    <div>
+      <table id="constraint-table" class="mini">
+        <thead>
+          <tr>
+            <th>class</th>
+            <th>reason</th>
+            <th>path</th>
+            <th>via</th>
+            <th>count</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 
+  <h4>Live events</h4>
+  <div id="constraint-log" class="log"></div>
+</section>
+
+<script type="module">
+  const $ = (sel) => document.querySelector(sel);
+  const tBody = $('#constraint-table tbody');
+  const totalEl = $('#constraint-total');
+  const logEl = $('#constraint-log');
+
+  async function refreshCounters() {
+    const r = await fetch('/metrics', {
+      headers: window.metricsAuth ? { authorization: `Bearer ${window.metricsAuth}` } : {},
+    });
+    const { counters } = await r.json();
+    const rows = counters.filter((c) => c.name === 'constraint_violations_total');
+
+    // 5-minute-ish sum if your /metrics already exposes cumulative; otherwise just display raw
+    const total = rows.reduce((a, x) => a + (Number(x.value) || 0), 0);
+    totalEl.textContent = String(total);
+
+    tBody.innerHTML = '';
+    rows.forEach((x) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${x.labels.class || ''}</td> 
+                     <td>${x.labels.reason || ''}</td> 
+                     <td>${x.labels.path || ''}</td> 
+                     <td>${x.labels.via || ''}</td> 
+                     <td style="text-align:right">${x.value}</td>`;
+      tBody.appendChild(tr);
+    });
+  }
+
+  function pushLog(ev) {
+    const pre = document.createElement('div');
+    pre.className = 'logline';
+    pre.textContent = `[${new Date().toLocaleTimeString()}] ${ev.event} ${JSON.stringify(ev.data)}`;
+    logEl.prepend(pre);
+    while (logEl.childElementCount > 100) logEl.removeChild(logEl.lastChild);
+  }
+
+  function listenSSE() {
+    const es = new EventSource(
+      '/conv/stream?conv_id=__admin_watch__&text=__noop__&engine=echo&replay=1',
+      { withCredentials: false }
+    );
+    es.addEventListener('memory.constraint', (e) =>
+      pushLog({ event: 'memory.constraint', data: JSON.parse(e.data) })
+    );
+    es.onerror = () => es.close(); // best-effort
+  }
+  setInterval(refreshCounters, 3000);
+  refreshCounters();
+  listenSSE();
+</script>
+This piggybacks your existing /metrics and SSE taxonomy.

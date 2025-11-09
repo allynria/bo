@@ -9,44 +9,67 @@ function startService(env = {}) {
   const script = path.join(process.cwd(), 'scripts', 'service.js');
   const child = spawn(process.execPath, [script], { env: { ...process.env, ...env } });
   let logs = '';
-  child.stdout.on('data', (d) => { logs += d.toString(); });
-  child.stderr.on('data', (d) => { logs += d.toString(); });
+  child.stdout.on('data', (d) => {
+    logs += d.toString();
+  });
+  child.stderr.on('data', (d) => {
+    logs += d.toString();
+  });
   return { child, getLogs: () => logs };
 }
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let data = '';
-      res.on('data', (d) => { data += d.toString(); });
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, headers: res.headers, json: JSON.parse(data || '{}') }); }
-        catch (e) { reject(e); }
-      });
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (d) => {
+          data += d.toString();
+        });
+        res.on('end', () => {
+          try {
+            resolve({
+              status: res.statusCode,
+              headers: res.headers,
+              json: JSON.parse(data || '{}'),
+            });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
 // Fetch only status/headers; body may not be JSON (e.g., 404 text)
 function fetchStatus(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      res.resume();
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
-    }).on('error', reject);
+    http
+      .get(url, (res) => {
+        res.resume();
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
+      })
+      .on('error', reject);
   });
 }
 
 test('Backpressure emits rate_limited_total{reason="backpressure"}', async () => {
   const port = 3700 + Math.floor(Math.random() * 100);
-  const { child, getLogs } = startService({ NODE_ENV: 'test', LOG_JSON: '1', PORT: String(port), QUEUE_MAX: '1' });
+  const { child, getLogs } = startService({
+    NODE_ENV: 'test',
+    LOG_JSON: '1',
+    PORT: String(port),
+    QUEUE_MAX: '1',
+  });
   const base = `http://localhost:${port}`;
   // Ensure service is ready before proceeding to avoid flake under parallel runs
   await waitForUp(base, { timeout: 3000 });
   // Saturate queue: 8 waiters for ~500ms
   const N = 8;
   const waiters = [];
-  for (let i = 0; i < N; i++) waiters.push(fetchJson(`${base}/wait?ms=500`).catch(() => ({ status: 0 })));
+  for (let i = 0; i < N; i++)
+    waiters.push(fetchJson(`${base}/wait?ms=500`).catch(() => ({ status: 0 })));
   // Wait until queueDepth reaches QUEUE_MAX (1) to ensure gating
   let saturated = false;
   for (let i = 0; i < 20 && !saturated; i++) {
@@ -80,12 +103,22 @@ test('Backpressure emits rate_limited_total{reason="backpressure"}', async () =>
     assert.equal(metrics.status, 200);
     const counters = Array.isArray(metrics.json?.counters) ? metrics.json.counters : [];
     console.info('[rl-metric:debug] counters', counters);
-    match = counters.find((c) => c.name === 'rate_limited_total' && c.labels?.reason === 'backpressure' && Number(c.value) >= 1) || null;
+    match =
+      counters.find(
+        (c) =>
+          c.name === 'rate_limited_total' &&
+          c.labels?.reason === 'backpressure' &&
+          Number(c.value) >= 1
+      ) || null;
     if (!match) await new Promise((r) => setTimeout(r, 35));
   }
   assert.ok(!!match, 'rate_limited_total backpressure increment observed in metrics');
   // Cleanup
-  try { await Promise.allSettled(waiters); } catch {}
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    await Promise.allSettled(waiters);
+  } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });

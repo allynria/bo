@@ -162,18 +162,53 @@
       "get": { "summary": "Health info", "responses": { "200": { "description": "OK" } } }
     },
     "/readyz": {
-      "get": { "summary": "Readiness", "responses": { "200": { "description": "Ready" }, "503": { "$ref": "#/components/responses/Draining" } } }
-    }
-    ,
+      "get": {
+        "summary": "Readiness",
+        "responses": {
+          "200": { "description": "Ready" },
+          "503": { "$ref": "#/components/responses/Draining" }
+        }
+      }
+    },
     "/tenant/{id}": {
       "delete": {
         "summary": "Per-tenant purge (budgets, rate limiter, markers)",
         "parameters": [
-          { "in": "path", "name": "id", "required": true, "schema": { "type": "string" }, "description": "Tenant identifier" },
-          { "in": "query", "name": "older_than_ms", "required": false, "schema": { "type": "integer", "minimum": 0 }, "description": "Delete tool markers older than this TTL" },
-          { "in": "query", "name": "max_tool_deletes", "required": false, "schema": { "type": "integer", "minimum": 1 }, "description": "Maximum tool marker deletions in this request" },
-          { "in": "query", "name": "idem_older_than_ms", "required": false, "schema": { "type": "integer", "minimum": 0 }, "description": "Delete idempotency entries older than this TTL" },
-          { "in": "query", "name": "max_idem_deletes", "required": false, "schema": { "type": "integer", "minimum": 1 }, "description": "Maximum idempotency deletions in this request" }
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Tenant identifier"
+          },
+          {
+            "in": "query",
+            "name": "older_than_ms",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 0 },
+            "description": "Delete tool markers older than this TTL"
+          },
+          {
+            "in": "query",
+            "name": "max_tool_deletes",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 },
+            "description": "Maximum tool marker deletions in this request"
+          },
+          {
+            "in": "query",
+            "name": "idem_older_than_ms",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 0 },
+            "description": "Delete idempotency entries older than this TTL"
+          },
+          {
+            "in": "query",
+            "name": "max_idem_deletes",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 },
+            "description": "Maximum idempotency deletions in this request"
+          }
         ],
         "responses": {
           "200": {
@@ -201,7 +236,7 @@
                       "additionalProperties": false
                     }
                   },
-                  "required": ["ok","tenant","wiped"]
+                  "required": ["ok", "tenant", "wiped"]
                 }
               }
             }
@@ -215,8 +250,20 @@
       "delete": {
         "summary": "Global idempotency purge (admin)",
         "parameters": [
-          { "in": "query", "name": "older_than_ms", "required": false, "schema": { "type": "integer", "minimum": 0 }, "description": "Delete idempotency entries older than this TTL" },
-          { "in": "query", "name": "max_idem_deletes", "required": false, "schema": { "type": "integer", "minimum": 1 }, "description": "Maximum idempotency deletions in this request" }
+          {
+            "in": "query",
+            "name": "older_than_ms",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 0 },
+            "description": "Delete idempotency entries older than this TTL"
+          },
+          {
+            "in": "query",
+            "name": "max_idem_deletes",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 },
+            "description": "Maximum idempotency deletions in this request"
+          }
         ],
         "responses": {
           "200": {
@@ -229,7 +276,7 @@
                     "ok": { "type": "boolean" },
                     "deleted": { "type": "integer" }
                   },
-                  "required": ["ok","deleted"]
+                  "required": ["ok", "deleted"]
                 }
               }
             }
@@ -251,7 +298,10 @@
           "provider_used": { "type": "string" },
           "hedge_triggered": { "type": "boolean" },
           "resolved_model": { "type": "string" },
-          "engine_source": { "type": "string", "enum": ["explicit","ctx","heuristic","default","replay"] },
+          "engine_source": {
+            "type": "string",
+            "enum": ["explicit", "ctx", "heuristic", "default", "replay"]
+          },
           "variant_v": { "type": "string" },
           "conv_id": { "type": "string" },
           "tool_call_id": { "type": "string" },
@@ -278,13 +328,20 @@
       },
       "SSEEndPayload": {
         "type": "object",
-        "properties": { "final": { "type": "string" }, "idempotent_replay": { "type": "boolean" }, "request_id": { "type": "string" } },
+        "properties": {
+          "final": { "type": "string" },
+          "idempotent_replay": { "type": "boolean" },
+          "request_id": { "type": "string" }
+        },
         "required": ["final"]
       },
       "Message": {
         "type": "object",
         "properties": {
-          "role": { "type": "string", "enum": ["system","memory","context","user","tool_result","policy","assistant"] },
+          "role": {
+            "type": "string",
+            "enum": ["system", "memory", "context", "user", "tool_result", "policy", "assistant"]
+          },
           "text": { "type": "string" },
           "content": { "type": "array", "items": { "type": "string" } },
           "conv_id": { "type": "string" },
@@ -310,7 +367,7 @@
           "hash": { "type": "string" },
           "bytes_b64": { "type": "string" }
         },
-        "required": ["ok","hash","bytes_b64"]
+        "required": ["ok", "hash", "bytes_b64"]
       },
       "MessageRequest": {
         "type": "object",
@@ -320,7 +377,7 @@
           "content": { "type": "array", "items": { "type": "string" } },
           "conv_id": { "type": "string" },
           "turn": { "type": "integer" },
-          "engine": { "type": "string", "enum": ["echo","urga","dreams"] },
+          "engine": { "type": "string", "enum": ["echo", "urga", "dreams"] },
           "persona_v": { "type": "string" },
           "prompt_v": { "type": "string" },
           "id": { "type": "string" },
@@ -346,19 +403,29 @@
           "provider": { "type": "string" },
           "resolved_model": { "type": "string" },
           "variant_v": { "type": "string" },
-          "engine_source": { "type": "string", "enum": ["explicit","ctx","heuristic","default","replay"] },
+          "engine_source": {
+            "type": "string",
+            "enum": ["explicit", "ctx", "heuristic", "default", "replay"]
+          },
           "hash": { "type": "string" },
           "bytes_b64": { "type": "string" },
           "idempotent_replay": { "type": "boolean" },
           "request_id": { "type": "string" }
         },
-        "required": ["ok","reply","model","provider","resolved_model","hash","bytes_b64"]
+        "required": ["ok", "reply", "model", "provider", "resolved_model", "hash", "bytes_b64"]
       },
       "ErrorResponse": {
         "type": "object",
         "properties": {
           "error": { "type": "string" },
-          "errors": { "type": "array", "items": { "type": "object", "properties": { "path": { "type": "string" }, "message": { "type": "string" } }, "required": ["path","message"] } },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "path": { "type": "string" }, "message": { "type": "string" } },
+              "required": ["path", "message"]
+            }
+          },
           "scope": { "type": "string" },
           "wait_s": { "type": "number" },
           "retry_after_s": { "type": "number" },
@@ -370,27 +437,39 @@
     "responses": {
       "SchemaInvalid": {
         "description": "Schema invalid",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+        }
       },
       "UnsupportedMediaType": {
         "description": "Unsupported media type",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+        }
       },
       "RateLimited": {
         "description": "Rate limited",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+        }
       },
       "Draining": {
         "description": "Service draining",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+        }
       },
       "Forbidden": {
         "description": "Forbidden",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+        }
       },
       "InternalError": {
         "description": "Internal server error",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+        }
       }
     }
   }

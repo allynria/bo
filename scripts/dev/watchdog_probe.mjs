@@ -14,4 +14,3 @@ const result = runWatchdog({ convId: 'demo', userText });
 
 console.log('states:', listState('demo'));
 console.log('result:', result);
-

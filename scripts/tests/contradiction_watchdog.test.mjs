@@ -23,7 +23,10 @@ test('locked door: unlocking cancels contradiction', async () => {
   const conv = 't2';
   clearAll(conv);
   setState(conv, 'door', 'locked');
-  const { hints, flags } = runWatchdog({ convId: conv, userText: 'I unlock the door and open it.' });
+  const { hints, flags } = runWatchdog({
+    convId: conv,
+    userText: 'I unlock the door and open it.',
+  });
   assert.equal(flags.length, 0);
   assert.equal(hints.length, 0);
 });
@@ -35,7 +38,10 @@ test('locked door: "walk through the door" flags contradiction', async () => {
   const conv = 't3';
   clearAll(conv);
   setState(conv, 'door', 'locked');
-  const { flags } = runWatchdog({ convId: conv, userText: 'I walk through the door into the hall.' });
+  const { flags } = runWatchdog({
+    convId: conv,
+    userText: 'I walk through the door into the hall.',
+  });
   assert.ok(flags.length >= 1);
 });
 
@@ -57,7 +63,10 @@ test('locked gate: synonyms covered', async () => {
   const conv = 't5';
   clearAll(conv);
   setState(conv, 'gate', 'locked');
-  const { flags } = runWatchdog({ convId: conv, userText: 'We step through the gate into the courtyard.' });
+  const { flags } = runWatchdog({
+    convId: conv,
+    userText: 'We step through the gate into the courtyard.',
+  });
   assert.ok(flags.length >= 1);
 });
 
@@ -68,7 +77,9 @@ test('locked hatch: push open detected', async () => {
   const conv = 't6';
   clearAll(conv);
   setState(conv, 'hatch', 'locked');
-  const { flags } = runWatchdog({ convId: conv, userText: 'I push the hatch open and climb down.' });
+  const { flags } = runWatchdog({
+    convId: conv,
+    userText: 'I push the hatch open and climb down.',
+  });
   assert.ok(flags.length >= 1);
 });
-

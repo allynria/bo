@@ -11,27 +11,36 @@ function fetchSSE(url) {
     const headers = {
       origin: 'http://ok.test',
       authorization: 'Bearer test-token',
-      accept: 'text/event-stream'
+      accept: 'text/event-stream',
     };
-    const req = http.request({ method: 'GET', hostname: u.hostname, port: u.port, path: u.pathname + (u.search || ''), headers }, (res) => {
-      let buf = '';
-      const events = [];
-      res.on('data', (d) => {
-        buf += d.toString('utf8');
-        const chunks = buf.split(/\r?\n\r?\n/);
-        buf = chunks.pop();
-        for (const chunk of chunks) {
-          const lines = chunk.split(/\r?\n/);
-          const evtLine = lines.find((l) => l.startsWith('event:')) || '';
-          const dataLine = lines.find((l) => l.startsWith('data:')) || '';
-          const evt = evtLine.replace(/^event:\s*/, '').trim();
-          const dataStr = dataLine.replace(/^data:\s*/, '').trim();
-          events.push({ evt, dataStr });
-        }
-      });
-      res.on('end', () => resolve(events));
-      res.on('error', reject);
-    });
+    const req = http.request(
+      {
+        method: 'GET',
+        hostname: u.hostname,
+        port: u.port,
+        path: u.pathname + (u.search || ''),
+        headers,
+      },
+      (res) => {
+        let buf = '';
+        const events = [];
+        res.on('data', (d) => {
+          buf += d.toString('utf8');
+          const chunks = buf.split(/\r?\n\r?\n/);
+          buf = chunks.pop();
+          for (const chunk of chunks) {
+            const lines = chunk.split(/\r?\n/);
+            const evtLine = lines.find((l) => l.startsWith('event:')) || '';
+            const dataLine = lines.find((l) => l.startsWith('data:')) || '';
+            const evt = evtLine.replace(/^event:\s*/, '').trim();
+            const dataStr = dataLine.replace(/^data:\s*/, '').trim();
+            events.push({ evt, dataStr });
+          }
+        });
+        res.on('end', () => resolve(events));
+        res.on('error', reject);
+      }
+    );
     req.on('error', reject);
     req.end();
   });
@@ -51,4 +60,7 @@ async function run() {
   console.log('memory.fact:', compEvt?.dataStr || '(none)');
 }
 
-run().catch((e) => { console.error('error', e); process.exit(1); });
+run().catch((e) => {
+  console.error('error', e);
+  process.exit(1);
+});

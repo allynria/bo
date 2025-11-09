@@ -11,10 +11,13 @@
  *  - buildStyleBooster(style): "(Style: terse — keep sentences short, concrete. Avoid filler.)"
  */
 const DEFAULT_MAP = {
-  lull:    { token: 'terse',        desc: 'short, clipped, concrete; avoid filler; keep momentum low' },
-  rising:  { token: 'descriptive',  desc: 'sensory detail; kinetic verbs; build momentum' },
-  climax:  { token: 'poetic',       desc: 'vivid images; compressed metaphors; rhythm and heat' },
-  falling: { token: 'reflective',   desc: 'introspective; softer cadence; aftermath; inner thoughts' },
+  lull: { token: 'terse', desc: 'short, clipped, concrete; avoid filler; keep momentum low' },
+  rising: { token: 'descriptive', desc: 'sensory detail; kinetic verbs; build momentum' },
+  climax: { token: 'poetic', desc: 'vivid images; compressed metaphors; rhythm and heat' },
+  falling: {
+    token: 'reflective',
+    desc: 'introspective; softer cadence; aftermath; inner thoughts',
+  },
 };
 
 let STYLE_MAP = DEFAULT_MAP;

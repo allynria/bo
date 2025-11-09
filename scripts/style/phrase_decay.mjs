@@ -18,8 +18,12 @@ const MAX_COOLDOWN = Math.max(1, Number(process.env.PHRASE_DECAY_MAX ?? 3)); // 
 const STORE = new Map();
 const MAX_TURNS = 200; // lightweight cap per conv
 
-function now(){ return Date.now(); }
-function sha1(s){ return crypto.createHash('sha1').update(s,'utf8').digest('hex'); }
+function now() {
+  return Date.now();
+}
+function sha1(s) {
+  return crypto.createHash('sha1').update(s, 'utf8').digest('hex');
+}
 
 function norm(s) {
   return String(s || '')
@@ -36,7 +40,7 @@ function ngrams(s, n = NGRAM) {
   const words = s.split(' ').filter(Boolean);
   const out = [];
   for (let i = 0; i <= words.length - n; i++) {
-    const g = words.slice(i, i+n).join(' ');
+    const g = words.slice(i, i + n).join(' ');
     if (g.length >= MIN_LEN) out.push(g);
   }
   return out;
@@ -83,7 +87,7 @@ export function recordFinal(convId, text) {
 }
 
 export function planCooldown(convId) {
-  if (!ENABLED) return { enabled:false, cooldown: [] };
+  if (!ENABLED) return { enabled: false, cooldown: [] };
   const conv = ensureConv(convId);
   const t = now();
   const arr = [];
@@ -95,7 +99,7 @@ export function planCooldown(convId) {
     }
   }
   // prioritize actively cooled, then by score
-  arr.sort((a,b) => {
+  arr.sort((a, b) => {
     const ac = a.cooledUntil > t ? 1 : 0;
     const bc = b.cooledUntil > t ? 1 : 0;
     if (ac !== bc) return bc - ac;
@@ -109,22 +113,23 @@ export function planCooldown(convId) {
   }
   return {
     enabled: true,
-    cooldown: pick.map(p => ({
+    cooldown: pick.map((p) => ({
       phrase: p.phrase,
-      hash: sha1(p.phrase).slice(0,12),
-      until: Math.max(p.cooledUntil || (now()+COOLDOWN_MS), 0),
-      score: Math.round(p.score * 100)/100
-    }))
+      hash: sha1(p.phrase).slice(0, 12),
+      until: Math.max(p.cooledUntil || now() + COOLDOWN_MS, 0),
+      score: Math.round(p.score * 100) / 100,
+    })),
   };
 }
 
 export function buildAvoidanceBooster(plan) {
   if (!ENABLED || !plan?.cooldown?.length) return null;
-  const phrases = plan.cooldown.map(p => p.phrase);
+  const phrases = plan.cooldown.map((p) => p.phrase);
   // VERY tiny, model-visible nudge; keep neutral tone, avoid meta.
   const text =
     `(Avoid reusing these exact phrasings this turn; vary wording and imagery: ` +
-    phrases.map(p => `"${p}"`).join(', ') + `.)`;
+    phrases.map((p) => `"${p}"`).join(', ') +
+    `.)`;
   const estTokens = Math.ceil(text.length / 4);
   return { text, estTokens };
 }
@@ -139,7 +144,10 @@ export function coolPhrases(convId, phrases, ttlMs = COOLDOWN_MS) {
     if (!p) continue;
     const e = conv.grams.get(p) || { score: 0, last: t, cooledUntil: 0 };
     e.last = t;
-    e.cooledUntil = Math.max(Number(e.cooledUntil || 0), t + Math.max(1, Number(ttlMs || COOLDOWN_MS)));
+    e.cooledUntil = Math.max(
+      Number(e.cooledUntil || 0),
+      t + Math.max(1, Number(ttlMs || COOLDOWN_MS))
+    );
     conv.grams.set(p, e);
   }
 }
@@ -170,16 +178,22 @@ const LOOP_ENABLED = String(process.env.LOOP_PHRASE_DECAY_ENABLED ?? '1') === '1
 const LOOP_DECAY_MS = Number(process.env.LOOP_PHRASE_DECAY_MS ?? 10 * 60 * 1000);
 const LOOP_MAX_COUNT = Number(process.env.LOOP_PHRASE_MAX_COUNT ?? 3);
 const LOOP_WINDOW = Number(process.env.LOOP_PHRASE_WINDOW ?? 50);
-const LOOP_DEFAULT_PATTERNS = (process.env.LOOP_PHRASE_PATTERNS ??
-  'she smiles softly|you notice|a moment of silence|her gaze|he sighs|tilts her head|soft chuckle|eyes widen|voice trails off')
-  .split('|').map(s => s.trim()).filter(Boolean);
+const LOOP_DEFAULT_PATTERNS = (
+  process.env.LOOP_PHRASE_PATTERNS ??
+  'she smiles softly|you notice|a moment of silence|her gaze|he sighs|tilts her head|soft chuckle|eyes widen|voice trails off'
+)
+  .split('|')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 // In-memory store for the LOOP_* API: convId -> { key -> {count, lastTs, hits: number[]} }
 const P_STORE = new Map();
 
-const pNorm = s => String(s ?? '').toLowerCase();
+const pNorm = (s) => String(s ?? '').toLowerCase();
 
-export function enabled() { return LOOP_ENABLED; }
+export function enabled() {
+  return LOOP_ENABLED;
+}
 
 export function matchPhrases(text, patterns = LOOP_DEFAULT_PATTERNS) {
   const t = pNorm(text);
@@ -196,7 +210,8 @@ export function update(convId, botText, now = Date.now()) {
   if (!LOOP_ENABLED) return { hot: [] };
   const phrases = matchPhrases(botText);
   if (!phrases.length) return { hot: [] };
-  const entry = P_STORE.get(convId) ?? {}; P_STORE.set(convId, entry);
+  const entry = P_STORE.get(convId) ?? {};
+  P_STORE.set(convId, entry);
   for (const key of phrases) {
     const cur = entry[key] ?? { count: 0, lastTs: now, hits: [] };
     cur.count += 1;
@@ -210,7 +225,8 @@ export function update(convId, botText, now = Date.now()) {
 
 export function decay(convId, now = Date.now()) {
   if (!LOOP_ENABLED) return;
-  const entry = P_STORE.get(convId); if (!entry) return;
+  const entry = P_STORE.get(convId);
+  if (!entry) return;
   for (const [k, v] of Object.entries(entry)) {
     const dt = now - v.lastTs;
     if (dt > LOOP_DECAY_MS) {
@@ -236,7 +252,21 @@ export function getHot(convId, now = Date.now()) {
 
 export function snapshot(convId) {
   const entry = P_STORE.get(convId) ?? {};
-  return Object.fromEntries(Object.entries(entry).map(([k, v]) => [k, { count: v.count, lastTs: v.lastTs }]));
+  return Object.fromEntries(
+    Object.entries(entry).map(([k, v]) => [k, { count: v.count, lastTs: v.lastTs }])
+  );
 }
 
-export default { recordFinal, planCooldown, buildAvoidanceBooster, enabled, update, getHot, snapshot, matchPhrases, decay, coolPhrases, isCooled };
+export default {
+  recordFinal,
+  planCooldown,
+  buildAvoidanceBooster,
+  enabled,
+  update,
+  getHot,
+  snapshot,
+  matchPhrases,
+  decay,
+  coolPhrases,
+  isCooled,
+};

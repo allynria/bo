@@ -21,4 +21,3 @@ test('createGlobalRateLimiter caps within window and emits internal_error once',
   const r8 = limiter.allow(key);
   assert.equal(r8.ok, true);
 });
-

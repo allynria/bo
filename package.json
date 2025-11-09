@@ -9,6 +9,8 @@
     "test:all": "cross-env NODE_ENV=test LLM_TEST_STUBS=1 URGA_PROVIDER=stub-urga FACT_INJECT_ENABLED=1 FACT_INJECT_SIM_THRESHOLD=0.2 SCENE_LINKING_ENABLED=1 FACT_REINFORCE_ENABLED=1 TEST_MEMORY_API=1 FIRST_TOKEN_P99_TARGET_MS=800 node scripts/tests/run_all_sequential.mjs",
     "typecheck": "tsc -p tsconfig.types.json --noEmit",
     "lint": "eslint . --ext .js,.mjs,.ts --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "probe:stream": "node scripts/dev_probe_dreams_stream.mjs",
     "probe:env": "node scripts/dev_probe_provider_env.mjs",
     "probes": "node scripts/dev_probe_dreams_stream.mjs && node scripts/dev_probe_provider_env.mjs",
@@ -22,6 +24,7 @@
     "test:memory": "node --test scripts/tests/memory_*.test.mjs",
     "coverage:report": "c8 report --coverage-dir=coverage --reporter=text-summary",
     "coverage:check": "c8 report --coverage-dir=coverage --check-coverage --lines 80 --functions 80 --branches 70 --statements 80",
+    "coverage:lcov": "c8 report --coverage-dir=coverage --reporter=lcov",
     "prepublishOnly": "npm run sdk:gen && npm run ts:types"
   },
   "dependencies": {
@@ -39,6 +42,7 @@
     "cross-env": "^10.1.0",
     "esbuild": "^0.25.11",
     "eslint": "^9.38.0",
+    "prettier": "^3.3.3",
     "typescript": "^5.6.3"
   },
   "exports": {

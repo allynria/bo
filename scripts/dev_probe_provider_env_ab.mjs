@@ -11,7 +11,7 @@ function makeStubProvider(name) {
         options.context.vars.__selected_model = model;
       }
       return `provider:${name},model:${model}`;
-    }
+    },
   };
 }
 
@@ -49,7 +49,7 @@ async function runCase(caseName, env, modelName, variant) {
     memory: { trustLevel: 10, corruption: 0, messageCount: 0 },
     settings: {},
     state: {},
-    providers: { llm: null }
+    providers: { llm: null },
   };
 
   // If variant is provided, set it in context
@@ -71,7 +71,11 @@ async function runCase(caseName, env, modelName, variant) {
 
   // Exercise composite provider directly
   const composite = ctx.providers.llm;
-  const out = await composite.generate({ prompt: 'ab test prompt', options: { model: modelName || '', context: ctx }, stream: false });
+  const out = await composite.generate({
+    prompt: 'ab test prompt',
+    options: { model: modelName || '', context: ctx },
+    stream: false,
+  });
   const providerMatch = String(out || '').match(/provider:([^,]+)/);
   const modelMatch = String(out || '').match(/model:([^,]+)/);
 
@@ -91,9 +95,19 @@ async function runCase(caseName, env, modelName, variant) {
     case: caseName,
     env,
     variant: variant || null,
-    provider: (typeof ctx.vars.__selected_provider !== 'undefined') ? ctx.vars.__selected_provider : (providerMatch ? providerMatch[1] : null),
-    model: (typeof ctx.vars.__selected_model !== 'undefined') ? ctx.vars.__selected_model : (modelMatch ? modelMatch[1] : null),
-    now: MessageClock.now()
+    provider:
+      typeof ctx.vars.__selected_provider !== 'undefined'
+        ? ctx.vars.__selected_provider
+        : providerMatch
+          ? providerMatch[1]
+          : null,
+    model:
+      typeof ctx.vars.__selected_model !== 'undefined'
+        ? ctx.vars.__selected_model
+        : modelMatch
+          ? modelMatch[1]
+          : null,
+    now: MessageClock.now(),
   };
   return res;
 }
@@ -108,49 +122,108 @@ async function main() {
     if (model === 'echo') {
       if (v === 'A' && has(env.ECHO_PROVIDER_A)) return env.ECHO_PROVIDER_A;
       if (v === 'B' && has(env.ECHO_PROVIDER_B)) return env.ECHO_PROVIDER_B;
-      return has(env.ECHO_PROVIDER) ? env.ECHO_PROVIDER : has(env.URGA_PROVIDER) ? env.URGA_PROVIDER : has(env.DREAMS_PROVIDER) ? env.DREAMS_PROVIDER : null;
+      return has(env.ECHO_PROVIDER)
+        ? env.ECHO_PROVIDER
+        : has(env.URGA_PROVIDER)
+          ? env.URGA_PROVIDER
+          : has(env.DREAMS_PROVIDER)
+            ? env.DREAMS_PROVIDER
+            : null;
     } else if (model === 'dreams') {
       if (v === 'A' && has(env.DREAMS_PROVIDER_A)) return env.DREAMS_PROVIDER_A;
       if (v === 'B' && has(env.DREAMS_PROVIDER_B)) return env.DREAMS_PROVIDER_B;
-      return has(env.DREAMS_PROVIDER) ? env.DREAMS_PROVIDER : has(env.URGA_PROVIDER) ? env.URGA_PROVIDER : has(env.ECHO_PROVIDER) ? env.ECHO_PROVIDER : null;
+      return has(env.DREAMS_PROVIDER)
+        ? env.DREAMS_PROVIDER
+        : has(env.URGA_PROVIDER)
+          ? env.URGA_PROVIDER
+          : has(env.ECHO_PROVIDER)
+            ? env.ECHO_PROVIDER
+            : null;
     } else {
       if (v === 'A' && has(env.URGA_PROVIDER_A)) return env.URGA_PROVIDER_A;
       if (v === 'B' && has(env.URGA_PROVIDER_B)) return env.URGA_PROVIDER_B;
-      return has(env.URGA_PROVIDER) ? env.URGA_PROVIDER : has(env.ECHO_PROVIDER) ? env.ECHO_PROVIDER : has(env.DREAMS_PROVIDER) ? env.DREAMS_PROVIDER : null;
+      return has(env.URGA_PROVIDER)
+        ? env.URGA_PROVIDER
+        : has(env.ECHO_PROVIDER)
+          ? env.ECHO_PROVIDER
+          : has(env.DREAMS_PROVIDER)
+            ? env.DREAMS_PROVIDER
+            : null;
     }
   };
 
   const cases = [
     {
       name: 'echo-A prefers variant A provider',
-      env: { ECHO_PROVIDER_A: 'stub-echo-a', ECHO_PROVIDER_B: 'stub-echo-b', ECHO_PROVIDER: 'stub-echo', URGA_PROVIDER: 'stub-urga', DREAMS_PROVIDER: 'stub-dreams' },
-      model: 'echo', variant: 'A'
+      env: {
+        ECHO_PROVIDER_A: 'stub-echo-a',
+        ECHO_PROVIDER_B: 'stub-echo-b',
+        ECHO_PROVIDER: 'stub-echo',
+        URGA_PROVIDER: 'stub-urga',
+        DREAMS_PROVIDER: 'stub-dreams',
+      },
+      model: 'echo',
+      variant: 'A',
     },
     {
       name: 'echo-B prefers variant B provider',
-      env: { ECHO_PROVIDER_A: 'stub-echo-a', ECHO_PROVIDER_B: 'stub-echo-b', ECHO_PROVIDER: 'stub-echo', URGA_PROVIDER: 'stub-urga', DREAMS_PROVIDER: 'stub-dreams' },
-      model: 'echo', variant: 'B'
+      env: {
+        ECHO_PROVIDER_A: 'stub-echo-a',
+        ECHO_PROVIDER_B: 'stub-echo-b',
+        ECHO_PROVIDER: 'stub-echo',
+        URGA_PROVIDER: 'stub-urga',
+        DREAMS_PROVIDER: 'stub-dreams',
+      },
+      model: 'echo',
+      variant: 'B',
     },
     {
       name: 'dreams-A prefers variant A provider',
-      env: { DREAMS_PROVIDER_A: 'stub-dreams-a', DREAMS_PROVIDER_B: 'stub-dreams-b', DREAMS_PROVIDER: 'stub-dreams', URGA_PROVIDER: 'stub-urga', ECHO_PROVIDER: 'stub-echo' },
-      model: 'dreams', variant: 'A'
+      env: {
+        DREAMS_PROVIDER_A: 'stub-dreams-a',
+        DREAMS_PROVIDER_B: 'stub-dreams-b',
+        DREAMS_PROVIDER: 'stub-dreams',
+        URGA_PROVIDER: 'stub-urga',
+        ECHO_PROVIDER: 'stub-echo',
+      },
+      model: 'dreams',
+      variant: 'A',
     },
     {
       name: 'urga-B prefers variant B provider',
-      env: { URGA_PROVIDER_A: 'stub-urga-a', URGA_PROVIDER_B: 'stub-urga-b', URGA_PROVIDER: 'stub-urga', ECHO_PROVIDER: 'stub-echo', DREAMS_PROVIDER: 'stub-dreams' },
-      model: 'urga', variant: 'B'
+      env: {
+        URGA_PROVIDER_A: 'stub-urga-a',
+        URGA_PROVIDER_B: 'stub-urga-b',
+        URGA_PROVIDER: 'stub-urga',
+        ECHO_PROVIDER: 'stub-echo',
+        DREAMS_PROVIDER: 'stub-dreams',
+      },
+      model: 'urga',
+      variant: 'B',
     },
     {
       name: 'echo-A falls back to base when A unknown',
-      env: { ECHO_PROVIDER_A: 'unknown-provider', ECHO_PROVIDER_B: 'stub-echo-b', ECHO_PROVIDER: 'stub-echo', URGA_PROVIDER: 'stub-urga', DREAMS_PROVIDER: 'stub-dreams' },
-      model: 'echo', variant: 'A'
+      env: {
+        ECHO_PROVIDER_A: 'unknown-provider',
+        ECHO_PROVIDER_B: 'stub-echo-b',
+        ECHO_PROVIDER: 'stub-echo',
+        URGA_PROVIDER: 'stub-urga',
+        DREAMS_PROVIDER: 'stub-dreams',
+      },
+      model: 'echo',
+      variant: 'A',
     },
     {
       name: 'dreams-B falls back to urga when base missing',
-      env: { DREAMS_PROVIDER_B: 'unknown-provider', DREAMS_PROVIDER: '', URGA_PROVIDER: 'stub-urga', ECHO_PROVIDER: 'stub-echo' },
-      model: 'dreams', variant: 'B'
-    }
+      env: {
+        DREAMS_PROVIDER_B: 'unknown-provider',
+        DREAMS_PROVIDER: '',
+        URGA_PROVIDER: 'stub-urga',
+        ECHO_PROVIDER: 'stub-echo',
+      },
+      model: 'dreams',
+      variant: 'B',
+    },
   ];
 
   for (const c of cases) {
@@ -158,13 +231,15 @@ async function main() {
     const r = await runCase(c.name, c.env, c.model, c.variant);
     r.expected_provider = expProvider;
     r.expected_model = c.model || '';
-    r.pass = (r.provider === expProvider) && (r.model === (c.model || ''));
+    r.pass = r.provider === expProvider && r.model === (c.model || '');
     if (!r.pass) allPass = false;
     results.push(r);
   }
 
   if (!allPass) {
-    console.error(JSON.stringify({ ok: false, reason: 'ab env precedence assertions failed', results }));
+    console.error(
+      JSON.stringify({ ok: false, reason: 'ab env precedence assertions failed', results })
+    );
     process.exitCode = 1;
     return;
   }
@@ -172,7 +247,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(JSON.stringify({ ok: false, error: String(err && err.message || err) }));
+  console.error(JSON.stringify({ ok: false, error: String((err && err.message) || err) }));
   process.exitCode = 1;
 });
-

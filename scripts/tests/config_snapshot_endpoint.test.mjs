@@ -16,10 +16,14 @@ function fetchJson(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(url, { method: 'GET', headers }, (res) => {
       let body = '';
-      res.on('data', (c) => { body += c.toString(); });
+      res.on('data', (c) => {
+        body += c.toString();
+      });
       res.on('end', () => {
         let j = {};
-        try { j = JSON.parse(body); } catch {}
+        try {
+          j = JSON.parse(body);
+        } catch {}
         resolve({ status: res.statusCode, json: j, headers: res.headers });
       });
     });
@@ -31,7 +35,12 @@ function fetchJson(url, headers = {}) {
 test('config snapshot endpoint requires admin auth and includes hash header', async () => {
   const port = 3800 + Math.floor(Math.random() * 300);
   const token = 'admintoken';
-  const child = startService({ NODE_ENV: 'production', LOG_JSON: '1', PORT: String(port), ADMIN_TOKEN: token });
+  const child = startService({
+    NODE_ENV: 'production',
+    LOG_JSON: '1',
+    PORT: String(port),
+    ADMIN_TOKEN: token,
+  });
   const base = `http://localhost:${port}`;
   await waitForUp(base, { timeout: 3000 });
 
@@ -56,7 +65,8 @@ test('config snapshot endpoint requires admin auth and includes hash header', as
   const localHash = h.digest('hex');
   assert.equal(localHash, yesAuth.json.config_hash);
 
-  try { child.kill('SIGTERM'); } catch {}
+  try {
+    child.kill('SIGTERM');
+  } catch {}
   await new Promise((r) => child.on('exit', r));
 });
-

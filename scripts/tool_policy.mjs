@@ -21,16 +21,21 @@ export function lintToolPolicy(policy) {
   const v = policy.version;
   if (v !== 1) errors.push('version_invalid_or_missing');
   if (typeof policy.tool !== 'string' || policy.tool.length === 0) errors.push('tool_missing');
-  if (policy.idempotent_op_name && typeof policy.idempotent_op_name !== 'string') errors.push('idempotent_op_name_must_be_string');
+  if (policy.idempotent_op_name && typeof policy.idempotent_op_name !== 'string')
+    errors.push('idempotent_op_name_must_be_string');
   const fsAllow = policy?.fs?.allow;
   if (!Array.isArray(fsAllow)) errors.push('fs.allow_missing_or_not_array');
-  else if (fsAllow.some((p) => typeof p !== 'string' || p.length === 0)) errors.push('fs.allow_entries_must_be_strings');
+  else if (fsAllow.some((p) => typeof p !== 'string' || p.length === 0))
+    errors.push('fs.allow_entries_must_be_strings');
   const netAllow = policy?.net?.allow;
   if (!Array.isArray(netAllow)) errors.push('net.allow_missing_or_not_array');
-  else if (netAllow.some((h) => typeof h !== 'string' || h.length === 0)) errors.push('net.allow_entries_must_be_strings');
+  else if (netAllow.some((h) => typeof h !== 'string' || h.length === 0))
+    errors.push('net.allow_entries_must_be_strings');
   const lim = policy?.limits || {};
-  if (lim.memory_mb !== undefined && (!Number.isFinite(lim.memory_mb) || lim.memory_mb <= 0)) errors.push('limits.memory_mb_invalid');
-  if (lim.timeout_ms !== undefined && (!Number.isFinite(lim.timeout_ms) || lim.timeout_ms < 1)) errors.push('limits.timeout_ms_invalid');
+  if (lim.memory_mb !== undefined && (!Number.isFinite(lim.memory_mb) || lim.memory_mb <= 0))
+    errors.push('limits.memory_mb_invalid');
+  if (lim.timeout_ms !== undefined && (!Number.isFinite(lim.timeout_ms) || lim.timeout_ms < 1))
+    errors.push('limits.timeout_ms_invalid');
   return { ok: errors.length === 0, errors };
 }
 
@@ -41,7 +46,9 @@ export async function loadToolPolicyFromEnv() {
   const policyDir = String(process.env.TOOL_POLICY_DIR || '').trim();
   let obj = null;
   if (jsonStr) {
-    try { obj = JSON.parse(jsonStr); } catch {}
+    try {
+      obj = JSON.parse(jsonStr);
+    } catch {}
   }
   if (!obj && policyPath) {
     try {
@@ -53,7 +60,7 @@ export async function loadToolPolicyFromEnv() {
   if (!obj && policyDir && name) {
     const candidates = [
       path.join(policyDir, `${name}.policy.json`),
-      path.join(policyDir, `${name}.json`)
+      path.join(policyDir, `${name}.json`),
     ];
     for (const p of candidates) {
       try {

@@ -19,7 +19,7 @@ function runChildWrite(target, payload) {
   `;
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
-      env: { ...process.env, SKIP_DIR_FSYNC_FOR_TEST: '1', NODE_ENV: 'test' }
+      env: { ...process.env, SKIP_DIR_FSYNC_FOR_TEST: '1', NODE_ENV: 'test' },
     });
     child.on('exit', (code) => resolve({ code }));
   });
@@ -27,11 +27,16 @@ function runChildWrite(target, payload) {
 
 test('Kill-after-rename-before-dirfsync: data present on next boot', async () => {
   const target = path.join(process.cwd(), 'kill_after_fsync_probe.json');
-  try { await fsp.rm(target, { force: true }); } catch {}
+  try {
+    await fsp.rm(target, { force: true });
+  } catch {}
   const payload = '"payload"';
   const r = await runChildWrite(target, payload);
   assert.equal(r.code, 0, 'child should exit cleanly');
-  const exists = await fsp.stat(target).then(() => true).catch(() => false);
+  const exists = await fsp
+    .stat(target)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(exists, true, 'final file should exist even if dir fsync skipped');
   const data = await fsp.readFile(target, 'utf8');
   assert.equal(String(data).trim(), String(payload), 'file content should be present');

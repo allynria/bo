@@ -20,7 +20,7 @@ function norm(text) {
 function charEntropy(s) {
   if (!s) return 0;
   const m = new Map();
-  for (let i=0;i<s.length;i++) m.set(s[i], (m.get(s[i])||0)+1);
+  for (let i = 0; i < s.length; i++) m.set(s[i], (m.get(s[i]) || 0) + 1);
   const n = s.length;
   let H = 0;
   for (const c of m.values()) {
@@ -32,14 +32,14 @@ function charEntropy(s) {
 
 function stem(word) {
   // ultra-tiny stemmer: drop common suffixes
-  return word.replace(/(ing|ed|ly|es|s)$/,'');
+  return word.replace(/(ing|ed|ly|es|s)$/, '');
 }
 
 function wordEntropy(s) {
   const toks = s.split(' ').filter(Boolean).map(stem);
   if (!toks.length) return 0;
   const m = new Map();
-  for (const t of toks) m.set(t, (m.get(t)||0)+1);
+  for (const t of toks) m.set(t, (m.get(t) || 0) + 1);
   const n = toks.length;
   let H = 0;
   for (const c of m.values()) {
@@ -68,4 +68,3 @@ export function entropyScore(text) {
   const score = 0.65 * wh + 0.35 * ch;
   return { charH: ch, wordH: wh, score };
 }
-
