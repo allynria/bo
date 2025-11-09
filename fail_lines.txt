@@ -1,0 +1,3 @@
+node.exe : Test timed out after 60000ms: C:\Users\user\Do
+Test failed: C:\Users\user\Documents\trae_projects\last2\
+Test failed: C:\Users\user\Documents\trae_projects\last2\

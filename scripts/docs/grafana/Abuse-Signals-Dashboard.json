@@ -1,0 +1,97 @@
+{
+  "uid": "abuse-signals",
+  "title": "Abuse/Jailbreak Signals",
+  "tags": ["abuse", "signals"],
+  "timezone": "",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "type": "table",
+      "title": "Signal Counters by Level/Source",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "url": "/metrics"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "columns": [
+          { "text": "name" },
+          { "text": "value" },
+          { "text": "level" },
+          { "text": "source" }
+        ]
+      },
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "counters[$contains(['prompt_injection_signal_total','jailbreak_signal_total','grounding_strength_total'], name)].{"name": name, "value": value, "level": labels.level, "source": labels.source}"
+        }}
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Prompt Injection by Level",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 8 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [ { "refId": "A", "method": "GET", "url": "/metrics" } ],
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "counters[name='prompt_injection_signal_total'].{"label": labels.level, "value": value}"
+        }},
+        { "id": "organize", "options": { "indexByName": true, "renameByName": { "label": "Level", "value": "Total" } } }
+      ],
+      "options": { "displayMode": "gradient", "reduceOptions": { "calcs": ["last"], "values": true } }
+    },
+    {
+      "type": "bargauge",
+      "title": "Jailbreak by Level",
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 8 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [ { "refId": "A", "method": "GET", "url": "/metrics" } ],
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "counters[name='jailbreak_signal_total'].{"label": labels.level, "value": value}"
+        }},
+        { "id": "organize", "options": { "indexByName": true, "renameByName": { "label": "Level", "value": "Total" } } }
+      ],
+      "options": { "displayMode": "gradient", "reduceOptions": { "calcs": ["last"], "values": true } }
+    },
+    {
+      "type": "bargauge",
+      "title": "Grounding Strength by Level",
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [ { "refId": "A", "method": "GET", "url": "/metrics" } ],
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "counters[name='grounding_strength_total'].{"label": labels.level, "value": value}"
+        }},
+        { "id": "organize", "options": { "indexByName": true, "renameByName": { "label": "Level", "value": "Total" } } }
+      ],
+      "options": { "displayMode": "gradient", "reduceOptions": { "calcs": ["last"], "values": true } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Abuse Spike Alerts (sustained)",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 9 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [ { "refId": "A", "method": "GET", "url": "/metrics" } ],
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "counters[name='abuse_spike_alert_total'].{"Time": $millis(), "Value": value, "signal": labels.signal, "source": labels.source}"
+        }},
+        { "id": "organize", "options": { "indexByName": true, "renameByName": { "Time": "Time", "Value": "Value" }, "excludeByName": { "signal": false, "source": false } } }
+      ],
+      "options": { "legend": { "displayMode": "list" }, "tooltip": { "mode": "single" } }
+    }
+  ]
+}
+

@@ -1,0 +1,91 @@
+name: Auto Rollback Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Simulate rollback path without executing real rollback"
+        type: boolean
+        default: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - name: Contract drift check
+        run: |
+          node scripts/ci/contract_check.mjs
+      - name: Install dependencies
+        run: |
+          npm ci || true
+      - name: Start service
+        env:
+          PORT: 3000
+          ADMIN_TOKEN: ci
+        run: |
+          node scripts/service.js &
+          echo $! > service.pid
+      - name: Wait for readiness
+        run: |
+          node -e "(async()=>{const http=require('node:http');const u='http://localhost:'+ (process.env.PORT||3000) +'/healthz';function f(){return new Promise((r)=>{const req=http.request(u,{method:'GET'},(res)=>{res.resume();r(res.statusCode===200)});req.on('error',()=>r(false));req.end();});}let ok=false;const s=Date.now();(async()=>{for(let i=0;i<30;i++){ok=await f();if(ok)break;await new Promise(r=>setTimeout(r,500));}if(!ok){console.error('Service not ready');process.exit(1);}console.log('Ready in',Date.now()-s,'ms');})();})()"
+      - name: Run auto-rollback gate
+        id: run_gate
+        env:
+          METRICS_AUTH: ${{ secrets.METRICS_AUTH || '' }}
+          MAX_NON_JSON_LOGS: '0'
+          MAX_5XX: '0'
+          MAX_BACKPRESSURE: '0'
+          MAX_BUDGET_DENIALS: '0'
+          RUN_SOAK: '1'
+          SPAWN_SERVICE: '0'
+          BASE_URL: 'http://localhost:3000'
+          RESPOND_P99_TARGET_MS: '12'
+          BASELINE_P99_MS: '10'
+          ALLOWED_P99_REGRESSION_PCT: '10'
+          SOAK_RSS_BUDGET_PCT: '5'
+          DURATION_MIN: '1'
+          ADMIN_TOKEN: 'ci'
+        run: |
+          node scripts/ci/auto_rollback_gate.mjs
+      - name: Stop service
+        if: always()
+        run: |
+          kill $(cat service.pid) || true
+
+  rollback:
+    runs-on: ubuntu-latest
+    needs: gate
+    if: ${{ needs.gate.result == 'failure' || inputs.dry_run }}
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - name: Dry-run rollback
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          ROLLBACK_MODE: ${{ vars.ROLLBACK_MODE }}
+          ORCH_WEBHOOK_URL: ${{ secrets.ORCH_WEBHOOK_URL }}
+          ORCH_WEBHOOK_TOKEN: ${{ secrets.ORCH_WEBHOOK_TOKEN }}
+          ORCH_WEBHOOK_PAYLOAD: ${{ vars.ORCH_WEBHOOK_PAYLOAD }}
+          ORCH_K8S_NAMESPACE: ${{ vars.ORCH_K8S_NAMESPACE }}
+          ORCH_K8S_DEPLOYMENT: ${{ vars.ORCH_K8S_DEPLOYMENT }}
+          ORCH_ARGO_APP: ${{ vars.ORCH_ARGO_APP }}
+          ORCH_ARGO_REVISION: ${{ vars.ORCH_ARGO_REVISION }}
+          ORCH_ROLLBACK_CMD: ${{ vars.ORCH_ROLLBACK_CMD }}
+          RECOVERY_URL: ${{ secrets.RECOVERY_URL || 'http://localhost:3000/healthz' }}
+          RECOVERY_TIMEOUT_MINUTES: '5'
+          RECOVERY_BACKOFF_MS: '1000'
+          RECOVERY_AUTH_TOKEN: ${{ secrets.RECOVERY_AUTH_TOKEN || '' }}
+        run: |
+          node scripts/ci/rollback.mjs

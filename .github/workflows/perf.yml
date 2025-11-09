@@ -1,0 +1,51 @@
+name: Weekly Performance Guardrails
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch: {}
+
+jobs:
+  soak-budget-and-flamegraphs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: First-token distribution gate (metrics)
+        env:
+          PORT: '3950'
+          SPAWN_SERVICE: '1'
+          PREWARM_MODELS: 'gpt-4o-mini,echo-small'
+          LLM_TEST_STUBS: '1'
+          URGA_PROVIDER: 'stub-urga'
+          FIRST_TOKEN_THRESHOLD_MS: '300'
+          FIRST_TOKEN_MIN_PCT_UNDER: '95'
+        run: node scripts/ci/first_token_gate.mjs
+      - name: Run 15-min soak with budgets and profiling
+        env:
+          PORT: '3900'
+          SPAWN_SERVICE: '1'
+          ADMIN_TOKEN: 'ci'
+          DURATION_MIN: '15'
+          TARGET_QPS: '1000'
+          CONCURRENCY: '128'
+          RESPOND_P99_TARGET_MS: '20'
+          RETAINED_OBJECTS_BUDGET_PCT: '10'
+          SOAK_RSS_BUDGET_PCT: '5'
+          NODE_OPTIONS: '--cpu-prof --max-old-space-size=512'
+        run: node scripts/soak_budget_gate.mjs
+      - name: Upload flamegraph and heap artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-artifacts
+          path: |
+            **/*.cpuprofile
+            **/*.heapsnapshot
+          if-no-files-found: warn

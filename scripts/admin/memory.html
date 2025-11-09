@@ -1,0 +1,186 @@
+<!doctype html>
+<meta charset="utf-8"/>
+<title>Memory Admin</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --fg: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --accent: #2563eb;
+    --panel: #ffffff;
+    --mono: ui-monospace, Menlo, Consolas, monospace;
+    --sans: system-ui, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  body { font: 14px var(--sans); color: var(--fg); background: var(--bg); margin: 24px; }
+  h2 { margin: 0 0 8px; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .col { display:flex; flex-direction:column; gap:8px; }
+  .label { font-size:12px; color: var(--muted); }
+  input, button, select { font: 14px var(--sans); padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+  button { background: var(--accent); color: #fff; border: none; cursor: pointer; }
+  button.secondary { background: #fff; color: var(--fg); border: 1px solid var(--border); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .mono { font-family: var(--mono); white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  th { font-weight: 600; color: var(--muted); }
+  .pill { display:inline-block; padding:2px 6px; border-radius:999px; border:1px solid var(--border); font-size:12px; color: var(--muted); }
+  .sselog { height: 220px; overflow:auto; background:#0b1020; color:#e5e7eb; border-radius:6px; padding:8px; font: 12px var(--mono); }
+  .sselog .evt { margin-bottom:6px; }
+  .sselog .evt .name { color:#93c5fd; }
+  .sselog .evt .payload { color:#d1d5db; }
+  .status { font-size:12px; color: var(--muted); }
+</style>
+<h2>Memory Admin</h2>
+<div class="row">
+  <label>conv_id <input id="cid" value="conv-demo"/></label>
+  <label>token <input id="tok" placeholder="ADMIN_TOKEN (optional)"/></label>
+  <button id="load">Load Facts/Arc</button>
+  <button id="start" class="secondary">Start SSE</button>
+  <button id="toggleUltra" class="secondary">Toggle Ultra</button>
+  <span id="status" class="status"></span>
+  <span id="arcpill" class="pill" title="current arc">arc: <span id="arc">(none)</span></span>
+  <span id="ultrapill" class="pill" title="ultra mode">ultra: <span id="ultra">(unknown)</span></span>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <div class="row" style="justify-content:space-between;align-items:center;">
+      <strong>Facts</strong>
+      <input id="q" placeholder="Search facts"/>
+    </div>
+    <div style="overflow:auto; max-height: 360px;">
+      <table id="facts">
+        <thead>
+          <tr><th>id</th><th>text</th><th>agent</th><th>arc_tags</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <strong>Live memory.* SSE</strong>
+    <div id="sse" class="sselog" aria-live="polite"></div>
+  </div>
+  <div class="panel" style="grid-column:1 / -1;">
+    <strong>Arc Snapshot</strong>
+    <div id="arcjson" class="mono"></div>
+  </div>
+</div>
+
+<script>
+  const $ = (sel) => document.querySelector(sel);
+  const state = { facts: [], sse: null };
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"]+/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  }
+
+  function renderFacts(filter='') {
+    const tbody = $('#facts tbody');
+    const q = String(filter || '').toLowerCase();
+    const rows = (state.facts || [])
+      .filter(f => !q || String(f.text||'').toLowerCase().includes(q) || String(f.id||'').toLowerCase().includes(q))
+      .map(f => `<tr>
+        <td>${escapeHtml(f.id||'')}</td>
+        <td>${escapeHtml(f.text||'')}</td>
+        <td>${escapeHtml(f.agent_id||'')}</td>
+        <td>${Array.isArray(f.arc_tags) ? escapeHtml(f.arc_tags.join(',')) : ''}</td>
+      </tr>`)
+      .join('');
+    tbody.innerHTML = rows || '<tr><td colspan="4" style="color:#94a3b8">No facts</td></tr>';
+  }
+
+  async function loadArc() {
+    const conv_id = $('#cid').value.trim() || 'conv';
+    const token = $('#tok').value.trim();
+    const qs = token ? `?conv_id=${encodeURIComponent(conv_id)}&token=${encodeURIComponent(token)}` : `?conv_id=${encodeURIComponent(conv_id)}`;
+    const r = await fetch(`/memory/arc${qs}`);
+    const j = await r.json();
+    $('#arc').textContent = j.arc || '(none)';
+    $('#arcjson').textContent = escapeHtml(JSON.stringify(j, null, 2));
+  }
+
+  async function loadFacts() {
+    const conv_id = $('#cid').value.trim() || 'conv';
+    const token = $('#tok').value.trim();
+    const qs = token ? `?conv_id=${encodeURIComponent(conv_id)}&token=${encodeURIComponent(token)}` : `?conv_id=${encodeURIComponent(conv_id)}`;
+    const r = await fetch(`/memory/facts${qs}`);
+    const j = await r.json();
+    state.facts = Array.isArray(j.facts) ? j.facts : [];
+    renderFacts($('#q').value);
+  }
+
+  function renderUltra(enabled) {
+    const v = !!enabled ? 'on' : 'off';
+    $('#ultra').textContent = v;
+  }
+
+  async function loadUltra() {
+    const conv_id = $('#cid').value.trim() || 'conv';
+    const token = $('#tok').value.trim();
+    const qs = token ? `?conv_id=${encodeURIComponent(conv_id)}&token=${encodeURIComponent(token)}` : `?conv_id=${encodeURIComponent(conv_id)}`;
+    const r = await fetch(`/admin/ultra${qs}`);
+    const j = await r.json();
+    renderUltra(j.enabled ?? j.snapshot?.default_on);
+  }
+
+  async function toggleUltra() {
+    const conv_id = $('#cid').value.trim() || 'conv';
+    const token = $('#tok').value.trim();
+    const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+    const r = await fetch(`/admin/ultra${qs}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conv_id, toggle: true })
+    });
+    const j = await r.json();
+    renderUltra(j.enabled);
+    logEvt('loopguard.ultra.changed', { conv_id, enabled: j.enabled });
+  }
+
+  function logEvt(name, payload) {
+    const box = $('#sse');
+    const pre = document.createElement('div');
+    pre.className = 'evt';
+    pre.innerHTML = `<span class="name">${escapeHtml(name)}</span> <span class="payload">${escapeHtml(JSON.stringify(payload))}</span>`;
+    box.appendChild(pre);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function startSSE() {
+    const conv_id = $('#cid').value.trim() || 'conv';
+    const token = $('#tok').value.trim();
+    const qs = token ? `?conv_id=${encodeURIComponent(conv_id)}&token=${encodeURIComponent(token)}` : `?conv_id=${encodeURIComponent(conv_id)}`;
+    // Prefer admin SSE; if not available, fall back to a no-op
+    try { if (state.sse) { state.sse.close(); state.sse = null; } } catch {}
+    const es = new EventSource(`/admin/sse/memory${qs}`);
+    state.sse = es;
+    $('#status').textContent = 'connecting…';
+    es.addEventListener('open', () => { $('#status').textContent = 'connected'; });
+    es.addEventListener('error', () => { $('#status').textContent = 'error'; });
+    es.addEventListener('facts.updated', (ev) => { try { const data = JSON.parse(ev.data||'{}'); logEvt('facts.updated', data); } catch {}
+    });
+    es.addEventListener('memory.fact', (ev) => { try { const data = JSON.parse(ev.data||'{}'); logEvt('memory.fact', data); } catch {}
+    });
+    es.addEventListener('memory.arc', (ev) => { try { const data = JSON.parse(ev.data||'{}'); logEvt('memory.arc', data); } catch {}
+    });
+    es.addEventListener('memory.dream', (ev) => { try { const data = JSON.parse(ev.data||'{}'); logEvt('memory.dream', data); } catch {}
+    });
+    es.addEventListener('memory.shape', (ev) => { try { const data = JSON.parse(ev.data||'{}'); logEvt('memory.shape', data); } catch {}
+    });
+    es.addEventListener('narrative.event', (ev) => { try { const data = JSON.parse(ev.data||'{}'); logEvt('narrative.event', data); } catch {} });
+    es.addEventListener('loopguard.ultra.changed', (ev) => { try { const data = JSON.parse(ev.data||'{}'); renderUltra(data.enabled); logEvt('loopguard.ultra.changed', data); } catch {} });
+  }
+
+  $('#load').addEventListener('click', async () => { await loadArc(); await loadFacts(); });
+  $('#start').addEventListener('click', () => startSSE());
+  $('#toggleUltra').addEventListener('click', () => toggleUltra());
+  $('#q').addEventListener('input', (e) => renderFacts(e.target.value));
+  // Initial load (best-effort)
+  loadArc().catch(()=>{});
+  loadFacts().catch(()=>{});
+  loadUltra().catch(()=>{});
+</script>

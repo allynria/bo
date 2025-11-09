@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "convs": [
+    {
+      "name": "golden-urga-1",
+      "spec": {
+        "text": "Hello determinism.",
+        "engine": "urga"
+      },
+      "compile": {
+        "hash": "6145338c377c899e20cb29f238b0839d28d92f79c49cb450e7b7d98b17c063b3",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiSGVsbG8gZGV0ZXJtaW5pc20uIl0sInRvb2xfY2FsbHMiOltdLCJ0b29sX3Jlc3VsdHMiOltdfV19"
+      },
+      "message": {
+        "hash": "08ef79f6a9d94b83cf5afa048214616f5a4256349c4ea1d5c6d34a6c272a7436",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIkhlbGxvIGRldGVybWluaXNtLiJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "stream": {
+        "final": "stub:stub-urga:urga"
+      }
+    },
+    {
+      "name": "golden-urga-2",
+      "spec": {
+        "text": "Count to three: 1, 2, 3.",
+        "engine": "urga",
+        "persona_v": "v1",
+        "prompt_v": "v2"
+      },
+      "compile": {
+        "hash": "37adca0bd828766b92fb558148b14523a0b11202f2f59fc30f6e32d5f990f84e",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjIiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiQ291bnQgdG8gdGhyZWU6IDEsIDIsIDMuIl0sInRvb2xfY2FsbHMiOltdLCJ0b29sX3Jlc3VsdHMiOltdfV19"
+      },
+      "message": {
+        "hash": "df5ca2700bb0184c706ac75c2ba56fa3e9f96c02757b2031bed2a4ee998b9bb0",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjIiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIkNvdW50IHRvIHRocmVlOiAxLCAyLCAzLiJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "stream": {
+        "final": "stub:stub-urga:urga"
+      }
+    },
+    {
+      "name": "golden-urga-3",
+      "spec": {
+        "text": "Echo the word: moonlight",
+        "engine": "urga",
+        "persona_v": "v2",
+        "prompt_v": "v1"
+      },
+      "compile": {
+        "hash": "6119216f32e74caa595dee3a841f4272f827406e92cd8405a0d220ad97c36970",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MiIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiRWNobyB0aGUgd29yZDogbW9vbmxpZ2h0Il0sInRvb2xfY2FsbHMiOltdLCJ0b29sX3Jlc3VsdHMiOltdfV19"
+      },
+      "message": {
+        "hash": "ec0d5067e12a342afa14634b70976e3a3110451c06cf22f748a7ecef459ac440",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MiIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIkVjaG8gdGhlIHdvcmQ6IG1vb25saWdodCJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "stream": {
+        "final": "stub:stub-urga:urga"
+      }
+    },
+    {
+      "name": "golden-echo-1",
+      "spec": {
+        "text": "Plain echo test.",
+        "engine": "echo"
+      },
+      "compile": {
+        "hash": "7e71da6d238e60850e4f45eba0d0d5468f0119bd1f42ceb2f4365198fae08e2e",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiUGxhaW4gZWNobyB0ZXN0LiJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "message": {
+        "hash": "ade096caff614ef4eb466475496f63936b8dfb8236485229824f29c03dd37e53",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIlBsYWluIGVjaG8gdGVzdC4iXSwidG9vbF9jYWxscyI6W10sInRvb2xfcmVzdWx0cyI6W119XX0="
+      },
+      "stream": {
+        "final": "stub:stub-echo:echo"
+      }
+    },
+    {
+      "name": "golden-echo-2",
+      "spec": {
+        "text": "Symbols: !@#$%^&*()",
+        "engine": "echo",
+        "persona_v": "v1",
+        "prompt_v": "v3"
+      },
+      "compile": {
+        "hash": "5455df9b6d681aec603d29c66aeeb59025420e07b91b6f5b737d1307a3dadf3f",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjMiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiU3ltYm9sczogIUAjJCVeJiooKSJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "message": {
+        "hash": "c65efc2f3011279d4263715351f95123739a8b4c5ba6f7ff70c4fa09cd697dad",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjMiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIlN5bWJvbHM6ICFAIyQlXiYqKCkiXSwidG9vbF9jYWxscyI6W10sInRvb2xfcmVzdWx0cyI6W119XX0="
+      },
+      "stream": {
+        "final": "stub:stub-echo:echo"
+      }
+    },
+    {
+      "name": "golden-dreams-1",
+      "spec": {
+        "text": "Dream a little dream.",
+        "engine": "dreams"
+      },
+      "compile": {
+        "hash": "c7083c12240a265011c257ad730be72a8c2a0a7fcee5373496efa1117426b5d4",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiRHJlYW0gYSBsaXR0bGUgZHJlYW0uIl0sInRvb2xfY2FsbHMiOltdLCJ0b29sX3Jlc3VsdHMiOltdfV19"
+      },
+      "message": {
+        "hash": "a080caf9100f8fedc3c1ae2acf8965b54232e7c34d717808095946961200e34a",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIkRyZWFtIGEgbGl0dGxlIGRyZWFtLiJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "stream": {
+        "final": "stub:stub-dreams:dreams"
+      }
+    },
+    {
+      "name": "golden-dreams-2",
+      "spec": {
+        "text": "Lucid visions shimmer.",
+        "engine": "dreams",
+        "persona_v": "v2"
+      },
+      "compile": {
+        "hash": "1f6bb597b55bfc54c1608db502992bde212332ba835f51480b101266ab87907a",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MiIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiTHVjaWQgdmlzaW9ucyBzaGltbWVyLiJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "message": {
+        "hash": "4c4a66849eb2a182f23895b918cdb48feaa28cce8b39b9ccf86549ed885ff0d6",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MiIsInByb21wdF92IjoidjEiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIkx1Y2lkIHZpc2lvbnMgc2hpbW1lci4iXSwidG9vbF9jYWxscyI6W10sInRvb2xfcmVzdWx0cyI6W119XX0="
+      },
+      "stream": {
+        "final": "stub:stub-dreams:dreams"
+      }
+    },
+    {
+      "name": "golden-urga-4",
+      "spec": {
+        "text": "JSON content check {\"a\":1}.",
+        "engine": "urga",
+        "prompt_v": "v3"
+      },
+      "compile": {
+        "hash": "97a819fa8149da191c025a15a6e23797da72f2ca382861b9791c7b8d55fcb678",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjMiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiSlNPTiBjb250ZW50IGNoZWNrIHtcImFcIjoxfS4iXSwidG9vbF9jYWxscyI6W10sInRvb2xfcmVzdWx0cyI6W119XX0="
+      },
+      "message": {
+        "hash": "d3c638bbbf573a117c85aaba0da2c2608a6de53dca833a656cee8e21391f2763",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MSIsInByb21wdF92IjoidjMiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIkpTT04gY29udGVudCBjaGVjayB7XCJhXCI6MX0uIl0sInRvb2xfY2FsbHMiOltdLCJ0b29sX3Jlc3VsdHMiOltdfV19"
+      },
+      "stream": {
+        "final": "stub:stub-urga:urga"
+      }
+    },
+    {
+      "name": "golden-echo-3",
+      "spec": {
+        "text": "Whitespace     preserved",
+        "engine": "echo",
+        "persona_v": "v2",
+        "prompt_v": "v2"
+      },
+      "compile": {
+        "hash": "9b1c597e9419ce10904707f24f042235983094c5c5c604a1f666240cdc9601b3",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MiIsInByb21wdF92IjoidjIiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiV2hpdGVzcGFjZSAgICAgcHJlc2VydmVkIl0sInRvb2xfY2FsbHMiOltdLCJ0b29sX3Jlc3VsdHMiOltdfV19"
+      },
+      "message": {
+        "hash": "547fc998525259967cf93a63be0c6fb71ba292022ae659185eed45f082aaa7cb",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MiIsInByb21wdF92IjoidjIiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIldoaXRlc3BhY2UgICAgIHByZXNlcnZlZCJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "stream": {
+        "final": "stub:stub-echo:echo"
+      }
+    },
+    {
+      "name": "golden-dreams-3",
+      "spec": {
+        "text": "Final golden case.",
+        "engine": "dreams",
+        "persona_v": "v3",
+        "prompt_v": "v3"
+      },
+      "compile": {
+        "hash": "65bf2f0c51b8e5f965361cc62b27d47e863ffad5b17927ad55d39deffd7d2ac0",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MyIsInByb21wdF92IjoidjMiLCJtZXNzYWdlcyI6W3siaWQiOiJtc2dfdXNlcl8wIiwicm9sZSI6InVzZXIiLCJ0dXJuIjowLCJ0cyI6MCwibWV0YSI6e30sImNvbnRlbnQiOlsiRmluYWwgZ29sZGVuIGNhc2UuIl0sInRvb2xfY2FsbHMiOltdLCJ0b29sX3Jlc3VsdHMiOltdfV19"
+      },
+      "message": {
+        "hash": "56d085272bc166cc5149c114fc9bfa796583e1bb55d03636505ec7dfb8074f39",
+        "bytes_b64": "eyJwZXJzb25hX3YiOiJ2MyIsInByb21wdF92IjoidjMiLCJtZXNzYWdlcyI6W3siaWQiOiJjb252OjA6dXNlciIsInJvbGUiOiJ1c2VyIiwidHVybiI6MCwidHMiOjAsIm1ldGEiOnt9LCJjb250ZW50IjpbIkZpbmFsIGdvbGRlbiBjYXNlLiJdLCJ0b29sX2NhbGxzIjpbXSwidG9vbF9yZXN1bHRzIjpbXX1dfQ=="
+      },
+      "stream": {
+        "final": "stub:stub-dreams:dreams"
+      }
+    }
+  ]
+}

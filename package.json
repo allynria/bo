@@ -1,0 +1,53 @@
+{
+  "type": "module",
+  "scripts": {
+    "fix": "node fix-wrappers.mjs monolith.js monolith.fixed.js",
+    "check": "node --check monolith.fixed.js",
+    "start": "node scripts/service.js",
+    "test": "cross-env NODE_ENV=test LLM_TEST_STUBS=1 URGA_PROVIDER=stub-urga FACT_INJECT_ENABLED=1 FACT_INJECT_SIM_THRESHOLD=0.2 SCENE_LINKING_ENABLED=1 FACT_REINFORCE_ENABLED=1 TEST_MEMORY_API=1 FIRST_TOKEN_P99_TARGET_MS=800 node scripts/tests/run_all_sequential.mjs",
+    "test:fast": "cross-env FAST_SUITE=1 NODE_ENV=test LLM_TEST_STUBS=1 URGA_PROVIDER=stub-urga FACT_INJECT_ENABLED=1 FACT_INJECT_SIM_THRESHOLD=0.2 SCENE_LINKING_ENABLED=1 FACT_REINFORCE_ENABLED=1 TEST_MEMORY_API=1 node scripts/tests/run_all_sequential.mjs",
+    "test:all": "cross-env NODE_ENV=test LLM_TEST_STUBS=1 URGA_PROVIDER=stub-urga FACT_INJECT_ENABLED=1 FACT_INJECT_SIM_THRESHOLD=0.2 SCENE_LINKING_ENABLED=1 FACT_REINFORCE_ENABLED=1 TEST_MEMORY_API=1 FIRST_TOKEN_P99_TARGET_MS=800 node scripts/tests/run_all_sequential.mjs",
+    "typecheck": "tsc -p tsconfig.types.json --noEmit",
+    "lint": "eslint . --ext .js,.mjs,.ts --max-warnings=0",
+    "probe:stream": "node scripts/dev_probe_dreams_stream.mjs",
+    "probe:env": "node scripts/dev_probe_provider_env.mjs",
+    "probes": "node scripts/dev_probe_dreams_stream.mjs && node scripts/dev_probe_provider_env.mjs",
+    "probes:ci": "node scripts/probes_run_all.mjs",
+    "determinism:freeze": "node scripts/determinism/freeze_golden.mjs",
+    "determinism:verify": "node scripts/determinism/verify.mjs",
+    "sdk:gen": "node scripts/sdk/generate_from_openapi.mjs",
+    "ci:contract": "node scripts/ci/contract_check.mjs",
+    "ts:types": "tsc -p tsconfig.types.json",
+    "ts:check": "tsc -p tsconfig.types.json --noEmit",
+    "test:memory": "node --test scripts/tests/memory_*.test.mjs",
+    "coverage:report": "c8 report --coverage-dir=coverage --reporter=text-summary",
+    "coverage:check": "c8 report --coverage-dir=coverage --check-coverage --lines 80 --functions 80 --branches 70 --statements 80",
+    "prepublishOnly": "npm run sdk:gen && npm run ts:types"
+  },
+  "dependencies": {
+    "@babel/generator": "^7.25.0",
+    "@babel/parser": "^7.25.0",
+    "@babel/traverse": "^7.25.0",
+    "@babel/types": "^7.25.0",
+    "ajv": "8.17.1",
+    "babel": "^6.23.0",
+    "redis": "^4.6.13",
+    "tiktoken": "1.0.22"
+  },
+  "devDependencies": {
+    "c8": "^9.0.0",
+    "cross-env": "^10.1.0",
+    "esbuild": "^0.25.11",
+    "eslint": "^9.38.0",
+    "typescript": "^5.6.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./sdk/types/client.d.ts",
+      "import": "./sdk/js/client.mjs",
+      "default": "./sdk/js/client.mjs"
+    },
+    "./ts": "./sdk/ts/client.ts"
+  },
+  "types": "./sdk/types/client.d.ts"
+}

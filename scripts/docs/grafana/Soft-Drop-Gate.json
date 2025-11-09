@@ -1,0 +1,62 @@
+{
+  "uid": "soft-drop-gate",
+  "title": "Soft-Drop Gate",
+  "tags": ["soft-drop", "gating", "host"],
+  "timezone": "",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Host Load (CPU/RSS)",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [ { "refId": "A", "method": "GET", "url": "/metrics" } ],
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "[
+            counters[name='host_cpu_pct'].{"Time": $millis(), "Metric": 'host_cpu_pct', "Value": value},
+            counters[name='host_rss_mb'].{"Time": $millis(), "Metric": 'host_rss_mb', "Value": value}
+          ]"
+        }},
+        { "id": "organize", "options": {
+          "indexByName": true,
+          "renameByName": { "Time": "Time", "Metric": "Metric", "Value": "Value" },
+          "excludeByName": { "Metric": false }
+        }}
+      ],
+      "options": { "legend": { "displayMode": "list" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "type": "table",
+      "title": "Soft-Drop Counters by Reason/Source",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [ { "refId": "A", "method": "GET", "url": "/metrics" } ],
+      "options": { "showHeader": true, "columns": [ { "text": "name" }, { "text": "value" }, { "text": "reason" }, { "text": "source" }, { "text": "path" } ] },
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "counters[name='precall_soft_drop_total'].{"name": name, "value": value, "reason": labels.reason, "source": labels.source, "path": labels.path}"
+        }}
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Soft-Drop Jitter Buckets (ms)",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 9 },
+      "datasource": { "type": "simpod-json-datasource", "uid": "jsonapi" },
+      "targets": [ { "refId": "A", "method": "GET", "url": "/metrics" } ],
+      "transformations": [
+        { "id": "jsonata", "options": {
+          "expression": "counters[name='precall_soft_drop_ms_bucket'].{"label": 'le=' & labels.le & ', ' & labels.reason & '/' & labels.source & '/' & labels.path, "value": value}"
+        }},
+        { "id": "organize", "options": { "indexByName": true, "renameByName": { "label": "Bucket", "value": "Total" } } }
+      ],
+      "options": { "displayMode": "gradient", "reduceOptions": { "calcs": ["last"], "values": true } }
+    }
+  ]
+}
+

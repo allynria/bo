@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Application Config",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "logging": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "debug": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "dryRun": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "intentClassifier": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "rateLimiter": {
+      "type": "object",
+      "description": "Distributed rate limiter configuration",
+      "additionalProperties": true,
+      "properties": {
+        "backend": {
+          "type": "string",
+          "enum": ["file", "redis"],
+          "default": "file",
+          "description": "Backend for shared rate limiting. 'file' is built-in; 'redis' may be provided later."
+        },
+        "maxSkewMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000,
+          "default": 250,
+          "description": "Maximum expected per-worker clock skew; used to guard window resets for fairness.",
+          "x-env": "RL_MAX_SKEW_MS"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "archMap": [
+    { "architecture": "SCMP_ARCH_X86_64", "subArchitectures": ["SCMP_ARCH_X86", "SCMP_ARCH_X32"] },
+    { "architecture": "SCMP_ARCH_AARCH64", "subArchitectures": ["SCMP_ARCH_ARM"] }
+  ],
+  "syscalls": [
+    // Permit basic file I/O and process essentials
+    { "name": "read", "action": "SCMP_ACT_ALLOW" },
+    { "name": "write", "action": "SCMP_ACT_ALLOW" },
+    { "name": "open", "action": "SCMP_ACT_ALLOW" },
+    { "name": "close", "action": "SCMP_ACT_ALLOW" },
+    { "name": "fstat", "action": "SCMP_ACT_ALLOW" },
+    { "name": "poll", "action": "SCMP_ACT_ALLOW" },
+    { "name": "lseek", "action": "SCMP_ACT_ALLOW" },
+    { "name": "mmap", "action": "SCMP_ACT_ALLOW" },
+    { "name": "mprotect", "action": "SCMP_ACT_ALLOW" },
+    { "name": "munmap", "action": "SCMP_ACT_ALLOW" },
+    { "name": "brk", "action": "SCMP_ACT_ALLOW" },
+    { "name": "rt_sigaction", "action": "SCMP_ACT_ALLOW" },
+    { "name": "rt_sigprocmask", "action": "SCMP_ACT_ALLOW" },
+    { "name": "ioctl", "action": "SCMP_ACT_ALLOW" },
+    { "name": "pread64", "action": "SCMP_ACT_ALLOW" },
+    { "name": "pwrite64", "action": "SCMP_ACT_ALLOW" },
+    { "name": "fadvise64", "action": "SCMP_ACT_ALLOW" },
+    // Deny network
+    { "name": "socket", "action": "SCMP_ACT_ERRNO" },
+    { "name": "connect", "action": "SCMP_ACT_ERRNO" },
+    { "name": "accept", "action": "SCMP_ACT_ERRNO" },
+    { "name": "sendto", "action": "SCMP_ACT_ERRNO" },
+    { "name": "recvfrom", "action": "SCMP_ACT_ERRNO" },
+    { "name": "sendmsg", "action": "SCMP_ACT_ERRNO" },
+    { "name": "recvmsg", "action": "SCMP_ACT_ERRNO" }
+  ]
+}
+

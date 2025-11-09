@@ -1,0 +1,40 @@
+{
+  "title": "FailRoll & LoopGuard",
+  "panels": [
+    {
+      "type": "bargauge",
+      "title": "Outcomes by Beat",
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(failroll_fail_total[5m])) by (beat)" },
+        { "refId": "B", "expr": "sum(rate(failroll_success_total[5m])) by (beat)" },
+        { "refId": "C", "expr": "sum(rate(failroll_complications_total[5m])) by (beat)" }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Complication Styles",
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(failroll_complications_total[5m])) by (style)" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Near-miss / Complication Rate",
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(failroll_complications_total[5m]))" },
+        { "refId": "B", "expr": "sum(rate(failroll_fail_total[5m]))" },
+        { "refId": "C", "expr": "sum(rate(failroll_success_total[5m]))" }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Phrase Cooldowns (hits by style)",
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(loopguard_phrase_cooldowns_total[15m])) by (style)" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}
+

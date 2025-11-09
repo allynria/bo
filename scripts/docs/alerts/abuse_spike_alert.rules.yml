@@ -1,0 +1,17 @@
+groups:
+  - name: abuse_spike_alerts
+    rules:
+      - alert: AbuseSpikeSustained
+        # The service only increments abuse_spike_alert_total when sustained buckets exceed threshold,
+        # so any increase indicates a real sustained spike.
+        expr: increase(abuse_spike_alert_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: "Sustained abuse spike detected"
+          description: |
+            Signal={{ $labels.signal }} Source={{ $labels.source }}
+            Buckets and threshold are controlled by env:
+            ABUSE_ALERT_BUCKET_MS, ABUSE_ALERT_SUSTAINED_BUCKETS, ABUSE_ALERT_THRESHOLD.
+

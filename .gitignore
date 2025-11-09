@@ -1,0 +1,23 @@
+# secrets
+.env
+*.env.local
+.env.*.local
+
+# debug/heap/temp
+Heap.*.heapsnapshot
+.tmp_*
+tmp/
+*.log
+*.pid
+*.pid.lock
+test_output.txt
+stack_probe.txt
+
+# build artifacts and editor settings (optional safety)
+dist/
+build/
+.cache/
+.vscode/
+.idea/
+.DS_Store
+

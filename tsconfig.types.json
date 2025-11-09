@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "strict": true,
+    "module": "NodeNext",
+    "target": "ES2020",
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
+    "outDir": "sdk/types"
+  },
+  "include": ["sdk/ts/client.ts"]
+}

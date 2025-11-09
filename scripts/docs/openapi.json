@@ -1,0 +1,397 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LLM Service",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/conv/compile": {
+      "post": {
+        "summary": "Assemble prompt bytes deterministically (v1)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CompileRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compile succeeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CompileResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/SchemaInvalid" },
+          "415": { "$ref": "#/components/responses/UnsupportedMediaType" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Draining" }
+        }
+      }
+    },
+    "/conv/compile": {
+      "post": {
+        "summary": "Assemble prompt bytes deterministically",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CompileRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Compile succeeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CompileResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/SchemaInvalid" },
+          "415": { "$ref": "#/components/responses/UnsupportedMediaType" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Draining" }
+        }
+      }
+    },
+    "/conv/message": {
+      "post": {
+        "summary": "Single-turn message handling",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MessageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message processed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/SchemaInvalid" },
+          "415": { "$ref": "#/components/responses/UnsupportedMediaType" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Draining" }
+        }
+      }
+    },
+    "/v1/conv/message": {
+      "post": {
+        "summary": "Single-turn message handling (v1)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MessageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message processed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/SchemaInvalid" },
+          "415": { "$ref": "#/components/responses/UnsupportedMediaType" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Draining" }
+        }
+      }
+    },
+    "/v1/conv/stream": {
+      "get": {
+        "summary": "Streaming SSE endpoint (v1)",
+        "responses": {
+          "200": {
+            "description": "SSE stream",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string", "format": "event-stream" },
+                "x-sse-events": {
+                  "start": { "$ref": "#/components/schemas/SSEStartPayload" },
+                  "delta": { "$ref": "#/components/schemas/SSEDeltaPayload" },
+                  "hedge.switch": { "$ref": "#/components/schemas/SSEHedgeSwitchPayload" },
+                  "end": { "$ref": "#/components/schemas/SSEEndPayload" }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/SchemaInvalid" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Draining" }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Counters snapshot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "counters": { "type": "object", "additionalProperties": { "type": "integer" } }
+                  },
+                  "required": ["counters"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": { "summary": "Health info", "responses": { "200": { "description": "OK" } } }
+    },
+    "/readyz": {
+      "get": { "summary": "Readiness", "responses": { "200": { "description": "Ready" }, "503": { "$ref": "#/components/responses/Draining" } } }
+    }
+    ,
+    "/tenant/{id}": {
+      "delete": {
+        "summary": "Per-tenant purge (budgets, rate limiter, markers)",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "string" }, "description": "Tenant identifier" },
+          { "in": "query", "name": "older_than_ms", "required": false, "schema": { "type": "integer", "minimum": 0 }, "description": "Delete tool markers older than this TTL" },
+          { "in": "query", "name": "max_tool_deletes", "required": false, "schema": { "type": "integer", "minimum": 1 }, "description": "Maximum tool marker deletions in this request" },
+          { "in": "query", "name": "idem_older_than_ms", "required": false, "schema": { "type": "integer", "minimum": 0 }, "description": "Delete idempotency entries older than this TTL" },
+          { "in": "query", "name": "max_idem_deletes", "required": false, "schema": { "type": "integer", "minimum": 1 }, "description": "Maximum idempotency deletions in this request" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant purge executed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "tenant": { "type": "string" },
+                    "wiped": {
+                      "type": "object",
+                      "properties": {
+                        "rate_limiter": { "type": "boolean" },
+                        "tokens_window": { "type": "boolean" },
+                        "usd_window": { "type": "boolean" },
+                        "tokens_monthly": { "type": "boolean" },
+                        "usd_monthly": { "type": "boolean" },
+                        "tokens_rolling": { "type": "boolean" },
+                        "usd_rolling": { "type": "boolean" },
+                        "tool_markers_deleted": { "type": "integer" },
+                        "idem_deleted": { "type": "integer" }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["ok","tenant","wiped"]
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/idem": {
+      "delete": {
+        "summary": "Global idempotency purge (admin)",
+        "parameters": [
+          { "in": "query", "name": "older_than_ms", "required": false, "schema": { "type": "integer", "minimum": 0 }, "description": "Delete idempotency entries older than this TTL" },
+          { "in": "query", "name": "max_idem_deletes", "required": false, "schema": { "type": "integer", "minimum": 1 }, "description": "Maximum idempotency deletions in this request" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Global idempotency purge executed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "deleted": { "type": "integer" }
+                  },
+                  "required": ["ok","deleted"]
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SSEStartPayload": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string" },
+          "provider": { "type": "string" },
+          "provider_primary": { "type": "string" },
+          "provider_used": { "type": "string" },
+          "hedge_triggered": { "type": "boolean" },
+          "resolved_model": { "type": "string" },
+          "engine_source": { "type": "string", "enum": ["explicit","ctx","heuristic","default","replay"] },
+          "variant_v": { "type": "string" },
+          "conv_id": { "type": "string" },
+          "tool_call_id": { "type": "string" },
+          "tenant": { "type": "string" },
+          "request_id": { "type": "string" },
+          "tension": { "type": "number" },
+          "tension_beat": { "type": "string" }
+        }
+      },
+      "SSEDeltaPayload": {
+        "type": "object",
+        "properties": { "text": { "type": "string" } },
+        "required": ["text"]
+      },
+      "SSEHedgeSwitchPayload": {
+        "type": "object",
+        "properties": {
+          "from_provider": { "type": "string" },
+          "from_resolved_model": { "type": "string" },
+          "to_provider": { "type": "string" },
+          "to_resolved_model": { "type": "string" },
+          "reason": { "type": "string", "enum": ["hedge"] }
+        }
+      },
+      "SSEEndPayload": {
+        "type": "object",
+        "properties": { "final": { "type": "string" }, "idempotent_replay": { "type": "boolean" }, "request_id": { "type": "string" } },
+        "required": ["final"]
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string", "enum": ["system","memory","context","user","tool_result","policy","assistant"] },
+          "text": { "type": "string" },
+          "content": { "type": "array", "items": { "type": "string" } },
+          "conv_id": { "type": "string" },
+          "turn": { "type": "integer" },
+          "id": { "type": "string" },
+          "ts": { "type": "number" }
+        }
+      },
+      "CompileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
+          "persona_v": { "type": "string" },
+          "prompt_v": { "type": "string" }
+        },
+        "required": ["messages"]
+      },
+      "CompileResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "hash": { "type": "string" },
+          "bytes_b64": { "type": "string" }
+        },
+        "required": ["ok","hash","bytes_b64"]
+      },
+      "MessageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string" },
+          "content": { "type": "array", "items": { "type": "string" } },
+          "conv_id": { "type": "string" },
+          "turn": { "type": "integer" },
+          "engine": { "type": "string", "enum": ["echo","urga","dreams"] },
+          "persona_v": { "type": "string" },
+          "prompt_v": { "type": "string" },
+          "id": { "type": "string" },
+          "ts": { "type": "number" },
+          "ctx": { "type": "object", "properties": { "vars": { "type": "object" } } }
+        }
+      },
+      "ReplyMessage": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string" },
+          "conv_id": { "type": "string" },
+          "turn": { "type": "integer" },
+          "content": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "reply": { "$ref": "#/components/schemas/ReplyMessage" },
+          "model": { "type": "string" },
+          "provider": { "type": "string" },
+          "resolved_model": { "type": "string" },
+          "variant_v": { "type": "string" },
+          "engine_source": { "type": "string", "enum": ["explicit","ctx","heuristic","default","replay"] },
+          "hash": { "type": "string" },
+          "bytes_b64": { "type": "string" },
+          "idempotent_replay": { "type": "boolean" },
+          "request_id": { "type": "string" }
+        },
+        "required": ["ok","reply","model","provider","resolved_model","hash","bytes_b64"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "errors": { "type": "array", "items": { "type": "object", "properties": { "path": { "type": "string" }, "message": { "type": "string" } }, "required": ["path","message"] } },
+          "scope": { "type": "string" },
+          "wait_s": { "type": "number" },
+          "retry_after_s": { "type": "number" },
+          "reason": { "type": "string" }
+        },
+        "required": ["error"]
+      }
+    },
+    "responses": {
+      "SchemaInvalid": {
+        "description": "Schema invalid",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "UnsupportedMediaType": {
+        "description": "Unsupported media type",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "RateLimited": {
+        "description": "Rate limited",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Draining": {
+        "description": "Service draining",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Forbidden": {
+        "description": "Forbidden",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      }
+    }
+  }
+}
