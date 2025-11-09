@@ -19,6 +19,12 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Install deps
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
       - name: First Token Gate
         env:
           SPAWN_SERVICE: '1'
@@ -58,4 +64,3 @@ jobs:
           STREAM_DURATION_MIN_PCT_UNDER: '90'
         run: |
           node scripts/ci/stream_duration_gate.mjs
-

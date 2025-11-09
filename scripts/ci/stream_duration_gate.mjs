@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 function startService(env = {}) {
   const script = path.join(process.cwd(), 'scripts', 'service.js');
@@ -71,10 +72,19 @@ async function main() {
   const port = Number(process.env.PORT || 3951);
   const base = `http://localhost:${port}`;
   const engine = String(process.env.STREAM_ENGINE || 'urga');
-  const N = Math.max(1, Number(process.env.STREAM_REQUESTS || 24));
-  const thresholdMs = Math.max(1, Number(process.env.STREAM_DURATION_THRESHOLD_MS || 5000));
-  const minPctUnder = Math.max(0, Math.min(100, Number(process.env.STREAM_DURATION_MIN_PCT_UNDER || 90)));
-  const concurrency = Math.max(1, Number(process.env.CONCURRENCY || 4));
+  // Load per-engine config if available, env variables override config
+  let cfg = {};
+  try {
+    const cfgPath = path.join(process.cwd(), 'scripts', 'ci', 'engines.json');
+    if (fs.existsSync(cfgPath)) {
+      cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')) || {};
+    }
+  } catch {}
+  const ecfg = cfg && typeof cfg === 'object' ? (cfg[engine] || {}) : {};
+  const N = Math.max(1, Number(process.env.STREAM_REQUESTS || ecfg.stream_requests || 24));
+  const thresholdMs = Math.max(1, Number(process.env.STREAM_DURATION_THRESHOLD_MS || ecfg.stream_duration_threshold_ms || 5000));
+  const minPctUnder = Math.max(0, Math.min(100, Number(process.env.STREAM_DURATION_MIN_PCT_UNDER || ecfg.stream_duration_min_pct_under || 90)));
+  const concurrency = Math.max(1, Number(process.env.CONCURRENCY || ecfg.concurrency || 4));
   const spawnService = String(process.env.SPAWN_SERVICE || '1') === '1';
   const metricsAuth = String(process.env.METRICS_AUTH || '').trim();
   const convAuth = String(process.env.CONV_AUTH || 'test-token');
@@ -124,7 +134,7 @@ async function main() {
   const pctUnder = total > 0 ? (under * 100) / total : 0;
   const ok = pctUnder >= minPctUnder;
   const debug = String(process.env.DEBUG_METRICS || '1').toLowerCase();
-  const out = { gate: 'stream_duration_distribution', threshold_ms: thresholdMs, min_pct_under: minPctUnder, total, under, pct_under: Math.round(pctUnder), ends_seen: endsSeen, requests: N, status_hist: statusHist };
+  const out = { gate: 'stream_duration_distribution', engine, threshold_ms: thresholdMs, min_pct_under: minPctUnder, total, under, pct_under: Math.round(pctUnder), ends_seen: endsSeen, requests: N, concurrency, status_hist: statusHist };
   // Always include bucket counters for diagnostics
   out.counters = sd.map((c) => ({ le: c.labels?.le, value: c.value }));
   if (debug === '1' || debug === 'true') {
@@ -137,4 +147,3 @@ async function main() {
 }
 
 main().catch((e) => { console.error('stream_duration_gate_error', e && e.stack || e); process.exit(1); });
-

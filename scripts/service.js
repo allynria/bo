@@ -773,6 +773,23 @@ const METRICS = {
       const labels = Object.fromEntries((labelStr ? labelStr.split(',') : []).filter(Boolean).map((p) => { const [a,b] = p.split('='); return [a,b]; }));
       out.push({ name, labels, value: v });
     }
+    // Summary counters for dashboards with clearer labels
+    try {
+      const sumByName = (n) => out.filter((c) => c.name === n).reduce((acc, c) => acc + Number(c.value || 0), 0);
+      const respByStatus = Object.create(null);
+      for (const c of out) {
+        if (c.name === 'responses_total' && c.labels && c.labels.status) {
+          const st = String(c.labels.status);
+          respByStatus[st] = (respByStatus[st] || 0) + Number(c.value || 0);
+        }
+      }
+      out.push({ name: 'summary_auth', labels: { kind: 'ok' }, value: sumByName('auth_ok_total') });
+      out.push({ name: 'summary_auth', labels: { kind: 'blocked' }, value: sumByName('auth_blocked_total') });
+      out.push({ name: 'summary_rate', labels: { kind: 'limited' }, value: sumByName('rate_limited_total') });
+      for (const [st, vv] of Object.entries(respByStatus)) {
+        out.push({ name: 'summary_responses', labels: { status: st }, value: vv });
+      }
+    } catch {}
     return out;
   }
 };
@@ -3565,8 +3582,10 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               res.writeHead(403, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'forbidden' }));
               try { METRICS.inc('responses_total', { status: '403' }); } catch {}
+              try { METRICS.inc('auth_blocked_total', { path: 'admin_spine' }); } catch {}
               return;
             }
+            try { METRICS.inc('auth_ok_total', { path: 'admin_spine' }); } catch {}
           }
           let convId = '';
           try { const uQ = new URL(`http://localhost${req.url}`); convId = String(uQ.searchParams.get('conv_id') || '').trim(); } catch {}
@@ -4195,8 +4214,10 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               res.writeHead(403, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'forbidden' }));
               try { METRICS.inc('responses_total', { status: '403' }); } catch {}
+              try { METRICS.inc('auth_blocked_total', { path: 'admin_sse_style' }); } catch {}
               return;
             }
+            try { METRICS.inc('auth_ok_total', { path: 'admin_sse_style' }); } catch {}
           }
           let convId = '';
           try {
@@ -4257,8 +4278,10 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               res.writeHead(403, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'forbidden' }));
               try { METRICS.inc('responses_total', { status: '403' }); } catch {}
+              try { METRICS.inc('auth_blocked_total', { path: 'admin_sse_refusal' }); } catch {}
               return;
             }
+            try { METRICS.inc('auth_ok_total', { path: 'admin_sse_refusal' }); } catch {}
           }
           let convId = '';
           try {
@@ -4326,8 +4349,10 @@ const ACTIVE_STREAMS = new Map(); // idempotent stream key -> { started: number 
               res.writeHead(403, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'forbidden' }));
               try { METRICS.inc('responses_total', { status: '403' }); } catch {}
+              try { METRICS.inc('auth_blocked_total', { path: 'state' }); } catch {}
               return;
             }
+            try { METRICS.inc('auth_ok_total', { path: 'state' }); } catch {}
           }
           if (!enforceJson(req, res, span)) return;
           const chunks = [];

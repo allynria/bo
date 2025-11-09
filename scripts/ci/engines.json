@@ -1,0 +1,11 @@
+{
+  "urga": {
+    "first_token_threshold_ms": 300,
+    "first_token_min_pct_under": 90,
+    "first_token_requests": 40,
+    "stream_duration_threshold_ms": 5000,
+    "stream_duration_min_pct_under": 90,
+    "stream_requests": 24,
+    "concurrency": 4
+  }
+}
