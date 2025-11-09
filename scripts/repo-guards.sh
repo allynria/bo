@@ -43,4 +43,11 @@ else
   fail "Graceful shutdown not detected (signals + server.close)"
 fi
 
+# 5) No tracked artifacts (build/test/temp outputs)
+if git ls-files | grep -E -q '(?:^|/)(coverage|dist|build|tmp_rl|var/usage)/|(^|/)tmp\.kill\.write\.json|(^|/)janitor_guard_|(^|/)out\.txt$|(^|/)errs\.txt$|(^|/)probe\.txt$|(^|/)rename-probe\.txt$|(^|/)test_output.*\.txt$|(^|/)enospc\.trigger\.txt$'; then
+  fail "Tracked artifacts detected"
+else
+  pass "No tracked artifacts"
+fi
+
 pass "Repo guards passed"

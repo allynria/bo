@@ -12,8 +12,12 @@ node_modules/
 *.log
 *.pid
 *.pid.lock
-test_output.txt
+test_output*.txt
 stack_probe.txt
+out.txt
+errs.txt
+probe.txt
+rename-probe.txt
 
 # build artifacts and editor settings (optional safety)
 dist/
@@ -23,3 +27,8 @@ coverage/
 .vscode/
 .idea/
 .DS_Store
+tmp_rl/
+tmp.kill.write.json*
+janitor_guard_*
+enospc.trigger.txt
+var/usage/
