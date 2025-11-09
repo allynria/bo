@@ -108,6 +108,7 @@ import { getCadenceCfg, pushTurn, chooseStyleForNext } from './loopguard/cadence
 import { getCadenceForBeat, buildCadenceHint } from './scene/cadence_scheduler.mjs';
 import { measureCadence } from './scene/cadence_meter.mjs';
 import { runStyleHedge, getStyleAlt } from './style/stream_style_hedge.mjs';
+// net utils are already imported earlier; avoid duplicate import here
 import {
   ultraDefaultOn,
   getUltraState,
@@ -299,6 +300,8 @@ import { maybeDream } from './memory/dreams.mjs';
 import { computeCharacterSpine, applySpineToLoopGuard } from './spine/character_spine.mjs';
 import { loadSpine, saveSpine, reinforce as reinforceSpine } from './state/character_spine.mjs';
 import { pushAudit, getAudit } from './memory/audit.mjs';
+import { chat as ollamaChat, chatStream as ollamaChatStream } from './providers/ollama.mjs';
+import { getBearerOrRawToken, getTokenFromQuery, isIpAllowed as netIsIpAllowed } from './utils/net.mjs';
 import {
   loadBeliefs as loadStateBeliefs,
   upsertBeliefs as upsertStateBeliefs,
@@ -4021,29 +4024,10 @@ export function startService({ port = PORT, drainTimeoutMs = 5000 } = {}) {
       }
       return;
     }
-    // Helper: IP allowlist (comma-separated list of exact IPs or prefix patterns like "10." or "192.168.")
+    // Helper: IP allowlist — delegated to shared net utility (exact match semantics)
     const isIpAllowed = (listEnv) => {
       try {
-        const raw = String(process.env[listEnv] || '').trim();
-        if (!raw) return true; // no allowlist configured
-        const forwarded = String(req.headers['x-forwarded-for'] || '')
-          .split(',')[0]
-          .trim();
-        const ip = forwarded || String(req.socket?.remoteAddress || '');
-        const items = raw
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-        for (const item of items) {
-          if (ip === item) return true;
-          // basic prefix match to handle private ranges without CIDR deps
-          if (item.endsWith('.')) {
-            if (ip.startsWith(item)) return true;
-          }
-          // allow wildcard '*' to permit all for debugging
-          if (item === '*') return true;
-        }
-        return false;
+        return netIsIpAllowed(req, listEnv);
       } catch {}
       return true;
     };
@@ -4091,10 +4075,8 @@ export function startService({ port = PORT, drainTimeoutMs = 5000 } = {}) {
         const hdr = String(
           req.headers['authorization'] || req.headers['x-admin-token'] || ''
         ).trim();
-        // Do not log raw header; redact if ever logged
-        const ok = hdr.toLowerCase().startsWith('bearer ')
-          ? (hdr.split(/\bBearer\s+/i)[1] || '').trim() === token
-          : hdr === token;
+        const tokenFromHdr = getBearerOrRawToken(hdr);
+        const ok = tokenFromHdr === token;
         if (!isIpAllowed('READYZ_IP_ALLOWLIST')) {
           res.writeHead(403, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'forbidden' }));
@@ -4341,15 +4323,11 @@ export function startService({ port = PORT, drainTimeoutMs = 5000 } = {}) {
         const hdr = String(
           req.headers['authorization'] || req.headers['x-admin-token'] || ''
         ).trim();
-        const tokenFromHdr = hdr.toLowerCase().startsWith('bearer ')
-          ? (hdr.split(/\bBearer\s+/i)[1] || '').trim()
-          : hdr;
+        const tokenFromHdr = getBearerOrRawToken(hdr);
         let tokenFromQuery = '';
         try {
           const u = new URL(`http://localhost${req.url}`);
-          tokenFromQuery = String(
-            u.searchParams.get('token') || u.searchParams.get('auth') || ''
-          ).trim();
+          tokenFromQuery = String(getTokenFromQuery(u)).trim();
         } catch {}
         const ok = tokenFromHdr === token || tokenFromQuery === token;
         try {
@@ -4932,6 +4910,104 @@ export function startService({ port = PORT, drainTimeoutMs = 5000 } = {}) {
       return;
     }
 
+    // Custom REST: proxy chat to Ollama (non-streaming)
+    if (String(req.method || 'GET').toUpperCase() === 'POST') {
+      let __path = '';
+      try { __path = new URL(`http://localhost${req.url}`).pathname; } catch { __path = String(req.url || ''); }
+      if (__path === '/api/chat') {
+        try {
+          if (!enforceJson(req, res, span)) return;
+          const chunks = [];
+          req.on('data', (c) => chunks.push(c));
+          req.on('end', async () => {
+            try {
+              const raw = Buffer.concat(chunks).toString('utf8');
+              const body = JSON.parse(raw || '{}');
+              const messages = Array.isArray(body?.messages) ? body.messages : [];
+              const system = String(body?.system || '').trim();
+              const temperature = Number(body?.temperature || process.env.OLLAMA_TEMPERATURE || 0.7);
+              const host = String(process.env.OLLAMA_HOST || 'http://127.0.0.1:11434');
+              const model = String(body?.model || process.env.OLLAMA_MODEL || '').trim();
+              if (!model) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'model_missing' }));
+                try { METRICS.inc('responses_total', { status: '400' }); } catch {}
+                return;
+              }
+              const msgList = system ? [{ role: 'system', content: system }, ...messages] : messages;
+              const options = { temperature };
+              const out = await ollamaChat({ host, model, messages: msgList, options, stream: false });
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ provider: out.provider, model: out.model, output: out.output }));
+              try { METRICS.inc('responses_total', { status: '200' }); span?.setAttribute?.('http.status_code', 200); } catch {}
+            } catch (err) {
+              res.writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'provider_error', msg: String(err && err.message || err) }));
+              try { METRICS.inc('responses_total', { status: '502' }); span?.setAttribute?.('http.status_code', 502); } catch {}
+            }
+          });
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'bad_request' }));
+          try { METRICS.inc('responses_total', { status: '400' }); span?.setAttribute?.('http.status_code', 400); } catch {}
+        }
+        return;
+      }
+      if (__path === '/api/chat/stream') {
+        try {
+          if (!enforceJson(req, res, span)) return;
+          const chunks = [];
+          req.on('data', (c) => chunks.push(c));
+          req.on('end', async () => {
+            try {
+              const raw = Buffer.concat(chunks).toString('utf8');
+              const body = JSON.parse(raw || '{}');
+              const messages = Array.isArray(body?.messages) ? body.messages : [];
+              const system = String(body?.system || '').trim();
+              const temperature = Number(body?.temperature || process.env.OLLAMA_TEMPERATURE || 0.7);
+              const host = String(process.env.OLLAMA_HOST || 'http://127.0.0.1:11434');
+              const model = String(body?.model || process.env.OLLAMA_MODEL || '').trim();
+              if (!model) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'model_missing' }));
+                try { METRICS.inc('responses_total', { status: '400' }); } catch {}
+                return;
+              }
+              const msgList = system ? [{ role: 'system', content: system }, ...messages] : messages;
+              const options = { temperature };
+              // SSE headers
+              res.writeHead(200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                Connection: 'keep-alive',
+              });
+              // Stream deltas
+              try {
+                for await (const delta of ollamaChatStream({ host, model, messages: msgList, options })) {
+                  try { res.write(`event: delta\ndata: ${JSON.stringify({ content: delta })}\n\n`); } catch {}
+                }
+                try { res.write(`event: done\ndata: ${JSON.stringify({ ok: true })}\n\n`); } catch {}
+                try { res.end(); } catch {}
+                try { METRICS.inc('responses_total', { status: '200' }); span?.setAttribute?.('http.status_code', 200); } catch {}
+              } catch (streamErr) {
+                try { res.write(`event: error\ndata: ${JSON.stringify({ error: 'provider_error', msg: String(streamErr && streamErr.message || streamErr) })}\n\n`); } catch {}
+                try { res.end(); } catch {}
+                try { METRICS.inc('responses_total', { status: '502' }); span?.setAttribute?.('http.status_code', 502); } catch {}
+              }
+            } catch (err) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'bad_request' }));
+              try { METRICS.inc('responses_total', { status: '400' }); span?.setAttribute?.('http.status_code', 400); } catch {}
+            }
+          });
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'bad_request' }));
+          try { METRICS.inc('responses_total', { status: '400' }); span?.setAttribute?.('http.status_code', 400); } catch {}
+        }
+        return;
+      }
+    }
     // Conversation: assemble prompt bytes and hash deterministically (supports /v1/conv/compile)
     if (
       (req.url?.startsWith('/conv/compile') || req.url?.startsWith('/v1/conv/compile')) &&

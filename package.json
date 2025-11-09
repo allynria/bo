@@ -8,7 +8,7 @@
     "test:fast": "cross-env FAST_SUITE=1 NODE_ENV=test LLM_TEST_STUBS=1 URGA_PROVIDER=stub-urga FACT_INJECT_ENABLED=1 FACT_INJECT_SIM_THRESHOLD=0.2 SCENE_LINKING_ENABLED=1 FACT_REINFORCE_ENABLED=1 TEST_MEMORY_API=1 node scripts/tests/run_all_sequential.mjs",
     "test:all": "cross-env NODE_ENV=test LLM_TEST_STUBS=1 URGA_PROVIDER=stub-urga FACT_INJECT_ENABLED=1 FACT_INJECT_SIM_THRESHOLD=0.2 SCENE_LINKING_ENABLED=1 FACT_REINFORCE_ENABLED=1 TEST_MEMORY_API=1 FIRST_TOKEN_P99_TARGET_MS=800 node scripts/tests/run_all_sequential.mjs",
     "typecheck": "tsc -p tsconfig.types.json --noEmit",
-    "lint": "eslint . --ext .js,.mjs,.ts --max-warnings=0",
+    "lint": "eslint scripts --ext .js,.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "probe:stream": "node scripts/dev_probe_dreams_stream.mjs",

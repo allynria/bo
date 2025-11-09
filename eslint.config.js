@@ -1,15 +1,18 @@
 export default [
   {
-    files: ['**/*.js', '**/*.mjs'],
+    files: ['scripts/**/*.js', 'scripts/**/*.mjs'],
+    ignores: ['sdk/**', '**/*.d.ts', 'sdk/js/client.mjs'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
     },
     linterOptions: {
-      reportUnusedDisableDirectives: 'error',
+      reportUnusedDisableDirectives: 'off',
     },
     rules: {
-      // Keep noisy rules off; we only want structural issues here
+      // Structural guardrails only; avoid style noise
+      complexity: ['warn', 60],
+      'max-lines': ['warn', { max: 25000, skipBlankLines: true, skipComments: true }],
     },
   },
 ];

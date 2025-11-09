@@ -1,0 +1,3 @@
+sdk/**
+**/*.d.ts
+sdk/js/client.mjs
